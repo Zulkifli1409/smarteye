@@ -73,6 +73,7 @@ flutter:
     - lib/image/image2.jpg
     - lib/image/image3.png
     - lib/image/bg.jpg
+    - backend/darknet/data/coco.names
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

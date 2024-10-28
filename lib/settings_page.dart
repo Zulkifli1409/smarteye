@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -7,7 +8,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool notificationsEnabled = true; // Status notifikasi
-  List<Map<String, String>> cocoNames = []; // Daftar objek dari coco.names
+  List<String> cocoNames = []; // Daftar objek dari coco.names
   List<bool> selectedObjects = []; // Status checklist objek
   String searchQuery = ""; // Variabel untuk pencarian
 
@@ -17,38 +18,21 @@ class _SettingsPageState extends State<SettingsPage> {
     loadCocoNames();
   }
 
-  void loadCocoNames() {
-    // Simulasi pembacaan file coco.names
-    // Ganti dengan pembacaan file nyata jika perlu
-    cocoNames = [
-      {'english': 'person', 'indonesian': 'orang'},
-      {'english': 'bicycle', 'indonesian': 'sepeda'},
-      {'english': 'car', 'indonesian': 'mobil'},
-      {'english': 'motorbike', 'indonesian': 'motor'},
-      {'english': 'aeroplane', 'indonesian': 'pesawat terbang'},
-      {'english': 'bus', 'indonesian': 'bus'},
-      {'english': 'train', 'indonesian': 'kereta'},
-      {'english': 'truck', 'indonesian': 'truk'},
-      {'english': 'boat', 'indonesian': 'perahu'},
-      {'english': 'traffic light', 'indonesian': 'lampu lalu lintas'},
-      {'english': 'fire hydrant', 'indonesian': 'hydrant pemadam kebakaran'},
-      {'english': 'stop sign', 'indonesian': 'tanda berhenti'},
-      {'english': 'parking meter', 'indonesian': 'meter parkir'},
-      {'english': 'bench', 'indonesian': 'bangku'},
-      {'english': 'bird', 'indonesian': 'burung'},
-      {'english': 'cat', 'indonesian': 'kucing'},
-      {'english': 'dog', 'indonesian': 'anjing'},
-      {'english': 'horse', 'indonesian': 'kuda'},
-      {'english': 'sheep', 'indonesian': 'domba'},
-      {'english': 'cow', 'indonesian': 'sapi'},
-      {'english': 'elephant', 'indonesian': 'gajah'},
-      {'english': 'bear', 'indonesian': 'beruang'},
-      {'english': 'zebra', 'indonesian': 'zebra'},
-      {'english': 'giraffe', 'indonesian': 'jiraf'},
-      // Tambahkan lebih banyak objek sesuai dengan file coco.names
-    ];
-    // Inisialisasi checklist status sesuai jumlah objek
-    selectedObjects = List<bool>.filled(cocoNames.length, false);
+  Future<void> loadCocoNames() async {
+    try {
+      // Membaca file coco.names dari folder backend/darknet/data/
+      final content =
+          await rootBundle.loadString('backend/darknet/data/coco.names');
+      final lines = content.split('\n');
+
+      cocoNames = lines.where((line) => line.isNotEmpty).toList();
+
+      // Inisialisasi checklist status sesuai jumlah objek
+      selectedObjects = List<bool>.filled(cocoNames.length, false);
+      setState(() {});
+    } catch (e) {
+      print("Error loading coco.names file: $e");
+    }
   }
 
   @override
@@ -64,10 +48,9 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         child: Column(
           children: [
-            // Pengaturan Aktifkan Notifikasi
             SwitchListTile(
               title: Text('Aktifkan Notifikasi Ancaman',
-                  style: TextStyle(color: Colors.white)), // Mengatur warna teks
+                  style: TextStyle(color: Colors.white)),
               value: notificationsEnabled,
               onChanged: (bool value) {
                 setState(() {
@@ -75,15 +58,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 });
               },
             ),
-            Divider(color: Colors.white), // Pemisah
-            // Pencarian
+            Divider(color: Colors.white),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: TextField(
+                style: TextStyle(color: Colors.white), // Warna teks pencarian
                 decoration: InputDecoration(
                   labelText: 'Cari Objek',
-                  labelStyle:
-                      TextStyle(color: Colors.white), // Mengatur warna label
+                  labelStyle: TextStyle(color: Colors.white),
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) {
@@ -97,14 +79,15 @@ class _SettingsPageState extends State<SettingsPage> {
               child: ListView.builder(
                 itemCount: cocoNames.length,
                 itemBuilder: (context, index) {
-                  if (cocoNames[index]['indonesian']!
-                      .toLowerCase()
-                      .contains(searchQuery)) {
+                  if (cocoNames[index].toLowerCase().contains(searchQuery)) {
                     return CheckboxListTile(
                       title: Text(
-                          '${cocoNames[index]['english']} (${cocoNames[index]['indonesian']})',
-                          style: TextStyle(
-                              color: Colors.white)), // Mengatur warna teks
+                        cocoNames[index],
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 255, 255, 255), // Warna teks daftar
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       value: selectedObjects[index],
                       onChanged: (bool? value) {
                         setState(() {
@@ -113,8 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                     );
                   }
-                  return SizedBox
-                      .shrink(); // Menghindari item yang tidak sesuai pencarian
+                  return SizedBox.shrink();
                 },
               ),
             ),
