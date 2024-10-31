@@ -30,7 +30,7 @@ def detect_objects(image):
     ln = [ln[i - 1] for i in out_layers.flatten()]
 
     blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (416, 416), swapRB=True, crop=False)
-    net.setInput(blob)
+    net.setInput(blob) 
     layerOutputs = net.forward(ln)
 
     boxes, confidences, classIDs = [], [], []
