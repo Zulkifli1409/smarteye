@@ -28,7 +28,7 @@ class _ImagePageState extends State<ImagePage> {
       }
 
       final request = http.MultipartRequest(
-          'POST', Uri.parse('http://192.168.1.5:5000/api/detect'));
+          'POST', Uri.parse('http://192.168.0.116:5000/api/detect'));
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
       final response = await request.send();
