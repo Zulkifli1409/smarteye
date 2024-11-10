@@ -28,7 +28,7 @@ class _ImagePageState extends State<ImagePage> {
       }
 
       final request = http.MultipartRequest(
-          'POST', Uri.parse('http://192.168.0.116:5000/api/detect'));
+          'POST', Uri.parse('http://192.168.1.5:5000/api/detect_image'));
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
       final response = await request.send();
@@ -36,7 +36,7 @@ class _ImagePageState extends State<ImagePage> {
         final jsonResponse = await response.stream.bytesToString();
         setState(() {
           detectedObjects =
-              List<Map<String, dynamic>>.from(json.decode(jsonResponse));
+              List<Map<String, dynamic>>.from(json.decode(jsonResponse) ?? []);
         });
       } else {
         print("Error detecting objects: ${response.statusCode}");
@@ -86,29 +86,32 @@ class _ImagePageState extends State<ImagePage> {
             Expanded(
               child: Center(
                 child: isImageLoaded
-                    ? FittedBox(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20.0),
-                              child: Image.file(
+                    ? LayoutBuilder(
+                        builder: (context, constraints) {
+                          final containerWidth = constraints.maxWidth;
+                          final containerHeight = constraints.maxHeight;
+
+                          final scaleX = containerWidth / originalImage.width;
+                          final scaleY = containerHeight / originalImage.height;
+
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Image.file(
                                 File(widget.filePath),
-                                width: originalImage.width.toDouble(),
-                                height: originalImage.height.toDouble(),
+                                width: containerWidth,
+                                height: containerHeight,
+                                fit: BoxFit.contain,
                               ),
-                            ),
-                            if (detectedObjects.isNotEmpty)
-                              CustomPaint(
-                                painter: BoundingBoxPainter(
-                                    detectedObjects, originalImage),
-                                child: Container(
-                                  width: originalImage.width.toDouble(),
-                                  height: originalImage.height.toDouble(),
+                              if (detectedObjects.isNotEmpty)
+                                CustomPaint(
+                                  painter: BoundingBoxPainter(
+                                      detectedObjects, scaleX, scaleY),
+                                  size: Size(containerWidth, containerHeight),
                                 ),
-                              ),
-                          ],
-                        ),
+                            ],
+                          );
+                        },
                       )
                     : errorMessage != null
                         ? Text(
@@ -136,6 +139,10 @@ class _ImagePageState extends State<ImagePage> {
                       itemCount: detectedObjects.length,
                       itemBuilder: (context, index) {
                         final object = detectedObjects[index];
+                        final label = object['label'] ?? 'Unknown';
+                        final confidence = object['confidence'] ?? 0.0;
+                        final boundingBox = object['box'] ?? {};
+
                         return Card(
                           elevation: 5,
                           margin:
@@ -146,15 +153,17 @@ class _ImagePageState extends State<ImagePage> {
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: Colors.blue[400],
-                              child: Text(object['label'][0].toUpperCase(),
+                              child: Text(
+                                  label.isNotEmpty
+                                      ? label[0].toUpperCase()
+                                      : '?',
                                   style: TextStyle(color: Colors.white)),
                             ),
                             title: Text(
-                              '${object['label']} (${(object['confidence'] * 100).toStringAsFixed(2)}%)',
+                              '$label (${(confidence * 100).toStringAsFixed(2)}%)',
                               style: TextStyle(color: Colors.black),
                             ),
-                            subtitle: Text(
-                                'Bounding Box: ${object['bounding_box']}',
+                            subtitle: Text('Bounding Box: $boundingBox',
                                 style: TextStyle(color: Colors.black54)),
                           ),
                         );
@@ -170,38 +179,37 @@ class _ImagePageState extends State<ImagePage> {
 
 class BoundingBoxPainter extends CustomPainter {
   final List<Map<String, dynamic>> objects;
-  final ui.Image originalImage;
+  final double scaleX;
+  final double scaleY;
 
-  BoundingBoxPainter(this.objects, this.originalImage);
+  BoundingBoxPainter(this.objects, this.scaleX, this.scaleY);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.red.withOpacity(0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 30;
+      ..strokeWidth = 4.0;
 
-    // Text style with larger font size and white color
     final textStyle = TextStyle(
       color: Colors.white,
-      fontSize:80, // Adjusted size for better fit
+      fontSize: 12,
       fontWeight: FontWeight.bold,
     );
 
     for (var object in objects) {
-      final boundingBox = object['bounding_box'];
-      final label = object['label'];
+      final boundingBox = object['box'] ?? [0, 0, 0, 0];
+      final label = object['label'] ?? 'Unknown';
 
-      // Adjust bounding box according to the aspect ratio
-      final left = boundingBox[0].toDouble();
-      final top = boundingBox[1].toDouble();
-      final width = boundingBox[2].toDouble();
-      final height = boundingBox[3].toDouble();
+      final left = boundingBox[0] * scaleX;
+      final top = boundingBox[1] * scaleY;
+      final width = boundingBox[2] * scaleX;
+      final height = boundingBox[3] * scaleY;
 
-      // Draw the bounding box
+      // Draw bounding box
       canvas.drawRect(Rect.fromLTWH(left, top, width, height), paint);
 
-      // Create a background for the label
+      // Draw label background
       final labelBackgroundPaint = Paint()
         ..color = Colors.black.withOpacity(0.7);
       final textSpan = TextSpan(text: label, style: textStyle);
@@ -219,7 +227,7 @@ class BoundingBoxPainter extends CustomPainter {
         labelBackgroundPaint,
       );
 
-      // Draw the label text
+      // Draw label text
       textPainter.paint(canvas, labelOffset);
     }
   }

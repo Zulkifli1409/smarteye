@@ -49,7 +49,7 @@ class _VideoPageState extends State<VideoPage> {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.0.116:5000/api/detect_video'),
+        Uri.parse('http://192.168.1.5:5000/api/detect_video'),
       );
       request.files.add(await http.MultipartFile.fromPath('video', file.path));
 
