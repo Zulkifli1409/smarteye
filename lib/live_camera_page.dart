@@ -134,6 +134,29 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
     }
   }
 
+  void _countObjects() {
+    Map<String, int> objectCounts = {};
+
+    for (var detection in detectedObjects) {
+      final label = detection.label;
+      if (objectCounts.containsKey(label)) {
+        objectCounts[label] = objectCounts[label]! + 1;
+      } else {
+        objectCounts[label] = 1;
+      }
+    }
+
+    String countMessage = objectCounts.entries
+        .map((entry) => '${entry.value} ${entry.key}')
+        .join(', ');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Total objek terdeteksi: $countMessage'),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -154,6 +177,10 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
           IconButton(
             icon: Icon(isFlashOn ? Icons.flash_on : Icons.flash_off),
             onPressed: _toggleFlash,
+          ),
+          IconButton(
+            icon: Icon(Icons.calculate),
+            onPressed: _countObjects,
           ),
         ],
         flexibleSpace: Container(
@@ -228,7 +255,7 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
                   'Zoom: ${zoomLevel.toStringAsFixed(1)}x',
                   style: TextStyle(
                     fontSize: 18,
-                    color: Colors.white, // Menambahkan warna putih
+                    color: Colors.white,
                   ),
                 ),
                 IconButton(
