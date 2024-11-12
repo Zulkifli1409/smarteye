@@ -2,68 +2,34 @@ from flask import Flask, request, jsonify
 import numpy as np
 import cv2
 import os
-import tempfile
+import torch
 from datetime import datetime
+import tempfile
 
 app = Flask(__name__)
 
-# Path to YOLO directory
-yolo_directory = r"D:\Politeknik\Semester 5\PRAK PENGOLAHAN CITRA DIGITAL (PAK ABDI)\smarteye\backend\darknet"
-
-# Load COCO labels
-labels_path = os.path.join(yolo_directory, "data", "coco.names")
-with open(labels_path, "r") as f:
-    LABELS = f.read().strip().split("\n")
-
-# Initialize colors for each label class
-np.random.seed(42)
-COLORS = np.random.randint(0, 255, size=(len(LABELS), 3), dtype="uint8")
-
-# Load YOLO model weights and config
-weights_path = os.path.join(yolo_directory, "cfg", "yolov3-tiny.weights")
-config_path = os.path.join(yolo_directory, "cfg", "yolov3-tiny.cfg")
-
-print("[INFO] Loading YOLO model...")
-net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
+# Load YOLOv5 model (nano version for speed)
+print("[INFO] Loading YOLOv5 model...")
+model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)
+model.conf = 0.5  # Confidence threshold
+model.iou = 0.3   # IoU threshold
+model.img_size = 320  # Set lower resolution for speed
 
 # Object detection function
 def detect_objects(image):
-    (H, W) = image.shape[:2]
-    layer_names = net.getLayerNames()
-    output_layers = net.getUnconnectedOutLayers()
-    ln = [layer_names[i - 1] for i in output_layers.flatten()]
-
-    blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (416, 416), swapRB=True, crop=False)
-    net.setInput(blob)
-    layer_outputs = net.forward(ln)
-
-    boxes, confidences, classIDs = [], [], []
-    for output in layer_outputs:
-        for detection in output:
-            scores = detection[5:]
-            classID = np.argmax(scores)
-            confidence = scores[classID]
-            if confidence > 0.5:
-                box = detection[0:4] * np.array([W, H, W, H])
-                (centerX, centerY, width, height) = box.astype("int")
-                x = int(centerX - (width / 2))
-                y = int(centerY - (height / 2))
-
-                boxes.append([x, y, int(width), int(height)])
-                confidences.append(float(confidence))
-                classIDs.append(classID)
-
-    idxs = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.3)
+    # Convert the image to RGB format as YOLOv5 expects RGB images
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    results = model(rgb_image)
+    
     detections = []
-    if len(idxs) > 0:
-        for i in idxs.flatten():
-            detection = {
-                "label": LABELS[classIDs[i]],
-                "confidence": confidences[i],
-                "box": boxes[i],
-                "timestamp": datetime.now().isoformat()
-            }
-            detections.append(detection)
+    for *box, confidence, class_id in results.xyxy[0].cpu().numpy():
+        detection = {
+            "label": model.names[int(class_id)],
+            "confidence": float(confidence),
+            "box": [int(coord) for coord in box],
+            "timestamp": datetime.now().isoformat()
+        }
+        detections.append(detection)
     return detections
 
 # Video processing function

@@ -1,13 +1,15 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 class ImagePage extends StatefulWidget {
   final String filePath;
+  final List<String>
+      selectedObjects; // Menambahkan parameter untuk objek yang dipilih
 
-  ImagePage({required this.filePath});
+  ImagePage({required this.filePath, required this.selectedObjects});
 
   @override
   _ImagePageState createState() => _ImagePageState();
@@ -28,15 +30,21 @@ class _ImagePageState extends State<ImagePage> {
       }
 
       final request = http.MultipartRequest(
-          'POST', Uri.parse('http://192.168.1.5:5000/api/detect_image'));
+          'POST', Uri.parse('http://smarteye.zulkifli.xyz/api/detect_image'));
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
       final response = await request.send();
       if (response.statusCode == 200) {
         final jsonResponse = await response.stream.bytesToString();
+        final objects =
+            List<Map<String, dynamic>>.from(json.decode(jsonResponse) ?? []);
+
+        // Filter objects that are in the selected objects list
         setState(() {
-          detectedObjects =
-              List<Map<String, dynamic>>.from(json.decode(jsonResponse) ?? []);
+          detectedObjects = objects.where((object) {
+            final label = object['label'] ?? '';
+            return widget.selectedObjects.contains(label);
+          }).toList();
         });
       } else {
         print("Error detecting objects: ${response.statusCode}");
@@ -53,11 +61,11 @@ class _ImagePageState extends State<ImagePage> {
       setState(() {
         originalImage = image;
         isImageLoaded = true;
-        errorMessage = null; // Clear any previous error messages
+        errorMessage = null;
       });
     } catch (e) {
       setState(() {
-        errorMessage = "Error loading image: $e"; // Set error message
+        errorMessage = "Error loading image: $e";
       });
       print("Error loading image: $e");
     }
@@ -91,6 +99,7 @@ class _ImagePageState extends State<ImagePage> {
                           final containerWidth = constraints.maxWidth;
                           final containerHeight = constraints.maxHeight;
 
+                          // Calculate scale factors for bounding boxes
                           final scaleX = containerWidth / originalImage.width;
                           final scaleY = containerHeight / originalImage.height;
 
@@ -99,15 +108,19 @@ class _ImagePageState extends State<ImagePage> {
                             children: [
                               Image.file(
                                 File(widget.filePath),
-                                width: containerWidth,
-                                height: containerHeight,
+                                width: originalImage.width * scaleX,
+                                height: originalImage.height * scaleY,
                                 fit: BoxFit.contain,
                               ),
                               if (detectedObjects.isNotEmpty)
                                 CustomPaint(
                                   painter: BoundingBoxPainter(
-                                      detectedObjects, scaleX, scaleY),
-                                  size: Size(containerWidth, containerHeight),
+                                    detectedObjects,
+                                    scaleX,
+                                    scaleY,
+                                  ),
+                                  size: Size(originalImage.width * scaleX,
+                                      originalImage.height * scaleY),
                                 ),
                             ],
                           );
@@ -154,17 +167,29 @@ class _ImagePageState extends State<ImagePage> {
                             leading: CircleAvatar(
                               backgroundColor: Colors.blue[400],
                               child: Text(
-                                  label.isNotEmpty
-                                      ? label[0].toUpperCase()
-                                      : '?',
-                                  style: TextStyle(color: Colors.white)),
+                                label.isNotEmpty ? label[0].toUpperCase() : '?',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
-                            title: Text(
-                              '$label (${(confidence * 100).toStringAsFixed(2)}%)',
-                              style: TextStyle(color: Colors.black),
+                            title: Row(
+                              children: [
+                                Text(
+                                  '$label',
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                                SizedBox(
+                                    width:
+                                        8), // Add some space between label and confidence
+                                Text(
+                                  '(${(confidence * 100).toStringAsFixed(2)}%)',
+                                  style: TextStyle(color: Colors.green),
+                                ),
+                              ],
                             ),
-                            subtitle: Text('Bounding Box: $boundingBox',
-                                style: TextStyle(color: Colors.black54)),
+                            subtitle: Text(
+                              'Bounding Box: $boundingBox',
+                              style: TextStyle(color: Colors.black54),
+                            ),
                           ),
                         );
                       },
@@ -187,53 +212,40 @@ class BoundingBoxPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red.withOpacity(0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
-
-    final textStyle = TextStyle(
-      color: Colors.white,
-      fontSize: 12,
-      fontWeight: FontWeight.bold,
-    );
+      ..color = Colors.red
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke;
 
     for (var object in objects) {
-      final boundingBox = object['box'] ?? [0, 0, 0, 0];
-      final label = object['label'] ?? 'Unknown';
+      final box = object['box'];
+      if (box != null) {
+        // Adjust bounding box coordinates by scale factor
+        final left = (box[0] * scaleX).clamp(0.0, size.width);
+        final top = (box[1] * scaleY).clamp(0.0, size.height);
+        final right = (box[2] * scaleX).clamp(left, size.width);
+        final bottom = (box[3] * scaleY).clamp(top, size.height);
 
-      final left = boundingBox[0] * scaleX;
-      final top = boundingBox[1] * scaleY;
-      final width = boundingBox[2] * scaleX;
-      final height = boundingBox[3] * scaleY;
+        final rect = Rect.fromLTRB(left, top, right, bottom);
+        canvas.drawRect(rect, paint);
 
-      // Draw bounding box
-      canvas.drawRect(Rect.fromLTWH(left, top, width, height), paint);
+        // Draw label and confidence
+        final label = object['label'] ?? 'Unknown';
+        final confidence = object['confidence'] ?? 0.0;
 
-      // Draw label background
-      final labelBackgroundPaint = Paint()
-        ..color = Colors.black.withOpacity(0.7);
-      final textSpan = TextSpan(text: label, style: textStyle);
-      final textPainter = TextPainter(
-        text: textSpan,
-        textAlign: TextAlign.left,
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-
-      final labelOffset = Offset(left, top - textPainter.height - 4);
-      canvas.drawRect(
-        Rect.fromLTWH(labelOffset.dx, labelOffset.dy, textPainter.width + 4,
-            textPainter.height + 4),
-        labelBackgroundPaint,
-      );
-
-      // Draw label text
-      textPainter.paint(canvas, labelOffset);
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: '$label ${(confidence * 100).toStringAsFixed(2)}%',
+            style:
+                TextStyle(color: Colors.black, backgroundColor: Colors.white),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(left, top));
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

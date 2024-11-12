@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -7,97 +6,129 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool notificationsEnabled = true; // Status notifikasi
-  List<String> cocoNames = []; // Daftar objek dari coco.names
-  List<bool> selectedObjects = []; // Status checklist objek
-  String searchQuery = ""; // Variabel untuk pencarian
+  List<String> selectedObjects = [];
+  List<String> _allObjects = [
+    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
+    'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
+    'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra',
+    'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+    'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove',
+    'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork',
+    'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli',
+    'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant',
+    'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard',
+    'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
+    'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+  ];
+  List<String> _filteredObjects = [];
+  TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    loadCocoNames();
+    _filteredObjects = List.from(_allObjects);
+    _searchController.addListener(_filterObjects);
   }
 
-  Future<void> loadCocoNames() async {
-    try {
-      // Membaca file coco.names dari folder backend/darknet/data/
-      final content =
-          await rootBundle.loadString('backend/darknet/data/coco.names');
-      final lines = content.split('\n');
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
-      cocoNames = lines.where((line) => line.isNotEmpty).toList();
-
-      // Inisialisasi checklist status sesuai jumlah objek
-      selectedObjects = List<bool>.filled(cocoNames.length, false);
-      setState(() {});
-    } catch (e) {
-      print("Error loading coco.names file: $e");
-    }
+  void _filterObjects() {
+    setState(() {
+      _filteredObjects = _allObjects
+          .where((object) => object
+              .toLowerCase()
+              .contains(_searchController.text.toLowerCase()))
+          .toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Halaman Pengaturan')),
+      appBar: AppBar(
+        title: Text('Pilih Objek yang Ingin Dideteksi'),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue, Colors.indigo],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+      ),
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('lib/image/bg.jpg'), // Pastikan path ini benar
+            image: AssetImage('lib/image/bg.jpg'),
             fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(
+              Colors.black.withOpacity(0.5),
+              BlendMode.darken,
+            ),
           ),
         ),
         child: Column(
           children: [
-            SwitchListTile(
-              title: Text('Aktifkan Notifikasi Ancaman',
-                  style: TextStyle(color: Colors.white)),
-              value: notificationsEnabled,
-              onChanged: (bool value) {
-                setState(() {
-                  notificationsEnabled = value;
-                });
-              },
-            ),
-            Divider(color: Colors.white),
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(10.0),
               child: TextField(
-                style: TextStyle(color: Colors.white), // Warna teks pencarian
+                controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: 'Cari Objek',
+                  labelText: 'Cari objek...',
+                  prefixIcon: Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.7),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                   labelStyle: TextStyle(color: Colors.white),
-                  border: OutlineInputBorder(),
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    searchQuery = value.toLowerCase();
-                  });
-                },
+                style: TextStyle(color: Colors.white), // Set the text color to white
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: cocoNames.length,
-                itemBuilder: (context, index) {
-                  if (cocoNames[index].toLowerCase().contains(searchQuery)) {
-                    return CheckboxListTile(
-                      title: Text(
-                        cocoNames[index],
-                        style: TextStyle(
-                          color: const Color.fromARGB(255, 255, 255, 255), // Warna teks daftar
-                          fontWeight: FontWeight.bold,
-                        ),
+              child: ListView(
+                children: _filteredObjects.map((object) {
+                  return CheckboxListTile(
+                    title: Text(
+                      object,
+                      style: TextStyle(
+                        color: Colors.white, // Set text color to white for the list
                       ),
-                      value: selectedObjects[index],
-                      onChanged: (bool? value) {
-                        setState(() {
-                          selectedObjects[index] = value!;
-                        });
-                      },
-                    );
-                  }
-                  return SizedBox.shrink();
+                    ),
+                    value: selectedObjects.contains(object),
+                    onChanged: (bool? value) {
+                      setState(() {
+                        if (value == true) {
+                          selectedObjects.add(object);
+                        } else {
+                          selectedObjects.remove(object);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, selectedObjects);
                 },
+                child: Text('Simpan Pilihan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue, // Replaced primary with backgroundColor
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 30),
+                ),
               ),
             ),
           ],

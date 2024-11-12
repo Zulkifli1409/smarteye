@@ -5,6 +5,10 @@ import 'dart:convert';
 import 'dart:async';
 
 class LiveCameraPage extends StatefulWidget {
+  final List<String> selectedObjects;
+
+  LiveCameraPage({required this.selectedObjects});
+
   @override
   _LiveCameraPageState createState() => _LiveCameraPageState();
 }
@@ -14,9 +18,11 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   Future<void>? _initializeControllerFuture;
   List<Detection> detectedObjects = [];
   Timer? _timer;
-  final String apiUrl = 'http://192.168.1.5:5000/api/detect_realtime';
+  final String apiUrl = 'http://smarteye.zulkifli.xyz/api/detect_realtime';
   bool isLoading = false;
   bool isFrontCamera = false;
+  bool isFlashOn = false;
+  double zoomLevel = 1.0;
 
   @override
   void initState() {
@@ -61,7 +67,9 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
           setState(() {
             detectedObjects = (data['detections'] as List)
                 .map((detection) => Detection.fromJson(detection))
-                .toList();
+                .where((detection) =>
+                    widget.selectedObjects.contains(detection.label))
+                .toList(); // Filter hasil deteksi berdasarkan selectedObjects
           });
         }
       }
@@ -75,9 +83,6 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   Future<void> _initializeCamera() async {
     try {
       final cameras = await availableCameras();
-      cameras.forEach((camera) {
-        print(camera.lensDirection);
-      });
       final selectedCamera = isFrontCamera
           ? cameras.firstWhere(
               (camera) => camera.lensDirection == CameraLensDirection.front)
@@ -104,6 +109,31 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
     _initializeCamera();
   }
 
+  void _toggleFlash() {
+    setState(() {
+      isFlashOn = !isFlashOn;
+      _controller!.setFlashMode(isFlashOn ? FlashMode.torch : FlashMode.off);
+    });
+  }
+
+  void _zoomIn() {
+    if (_controller != null) {
+      setState(() {
+        zoomLevel = (zoomLevel + 0.1).clamp(1.0, 4.0);
+        _controller!.setZoomLevel(zoomLevel);
+      });
+    }
+  }
+
+  void _zoomOut() {
+    if (_controller != null) {
+      setState(() {
+        zoomLevel = (zoomLevel - 0.1).clamp(1.0, 4.0);
+        _controller!.setZoomLevel(zoomLevel);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -120,6 +150,10 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
           IconButton(
             icon: Icon(Icons.switch_camera),
             onPressed: _toggleCamera,
+          ),
+          IconButton(
+            icon: Icon(isFlashOn ? Icons.flash_on : Icons.flash_off),
+            onPressed: _toggleFlash,
           ),
         ],
         flexibleSpace: Container(
@@ -155,7 +189,15 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
                       borderRadius: BorderRadius.circular(20),
                       child: Stack(
                         children: [
-                          CameraPreview(_controller!),
+                          Transform(
+                            alignment: Alignment.center,
+                            transform: isFrontCamera
+                                ? Matrix4.rotationY(
+                                    3.14159) // Membalikkan tampilan horizontal (flip kanan)
+                                : Matrix4
+                                    .identity(), // Tidak ada transformasi untuk kamera belakang
+                            child: CameraPreview(_controller!),
+                          ),
                           CustomPaint(
                             painter: DetectionPainter(detectedObjects),
                           ),
@@ -174,6 +216,26 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
                   ),
                 );
               },
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.zoom_out),
+                  onPressed: _zoomOut,
+                ),
+                Text(
+                  'Zoom: ${zoomLevel.toStringAsFixed(1)}x',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white, // Menambahkan warna putih
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.zoom_in),
+                  onPressed: _zoomIn,
+                ),
+              ],
             ),
             Expanded(
               child: detectedObjects.isEmpty
@@ -244,7 +306,7 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
 class Detection {
   final String label;
   final double confidence;
-  final List<int> box; // Ensure this is a list of integers
+  final List<int> box;
   final String timestamp;
 
   Detection({
@@ -255,11 +317,8 @@ class Detection {
   });
 
   factory Detection.fromJson(Map<String, dynamic> json) {
-    // Convert box coordinates to integers if they are strings
     List<int> boxList = (json['box'] as List)
-        .map((e) =>
-            int.tryParse(e.toString()) ??
-            0) // Convert to integer, defaulting to 0 if parsing fails
+        .map((e) => int.tryParse(e.toString()) ?? 0)
         .toList();
 
     return Detection(
@@ -289,39 +348,30 @@ class DetectionPainter extends CustomPainter {
     );
 
     for (var detection in detections) {
-      final Rect rect = Rect.fromLTWH(
+      final rect = Rect.fromLTRB(
         detection.box[0].toDouble(),
         detection.box[1].toDouble(),
-        (detection.box[2] - detection.box[0]).toDouble(),
-        (detection.box[3] - detection.box[1]).toDouble(),
+        detection.box[0].toDouble() + detection.box[2].toDouble(),
+        detection.box[1].toDouble() + detection.box[3].toDouble(),
       );
-
-      // Draw the bounding box
       canvas.drawRect(rect, paint);
 
-      // Prepare the label and confidence text
-      textPainter.text = TextSpan(
+      final text = TextSpan(
         text:
             '${detection.label} (${(detection.confidence * 100).toStringAsFixed(1)}%)',
         style: TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          backgroundColor: Colors.black54,
+          color: Colors.red,
+          fontSize: 12,
         ),
       );
+      textPainter.text = text;
       textPainter.layout();
-
-      // Position the text above the bounding box, centered horizontally
-      final double textX = rect.left + (rect.width - textPainter.width) / 2;
-      final double textY =
-          rect.top - textPainter.height - 2; // Add a small offset for spacing
-      textPainter.paint(canvas, Offset(textX, textY));
+      textPainter.paint(canvas, Offset(rect.left, rect.top - 15));
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+  bool shouldRepaint(CustomPainter oldDelegate) {
     return true;
   }
 }

@@ -6,8 +6,9 @@ import 'package:http/http.dart' as http;
 
 class VideoPage extends StatefulWidget {
   final String filePath;
+  final List<String> selectedObjects;
 
-  VideoPage({required this.filePath});
+  VideoPage({required this.filePath, required this.selectedObjects});
 
   @override
   _VideoPageState createState() => _VideoPageState();
@@ -26,13 +27,12 @@ class _VideoPageState extends State<VideoPage> {
       ..initialize().then((_) {
         setState(() {});
         _detectObjects();
-        _controller.addListener(
-            _updateBoundingBoxes); // Menambahkan listener untuk setiap frame
+        _controller.addListener(_updateBoundingBoxes);
       });
   }
 
   void _updateBoundingBoxes() {
-    setState(() {}); // Memaksa tampilan untuk di-update setiap frame
+    setState(() {});
   }
 
   Future<void> _detectObjects() async {
@@ -49,7 +49,7 @@ class _VideoPageState extends State<VideoPage> {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.1.5:5000/api/detect_video'),
+        Uri.parse('https://smarteye.zulkifli.xyz/api/detect_video'),
       );
       request.files.add(await http.MultipartFile.fromPath('video', file.path));
 
@@ -89,6 +89,14 @@ class _VideoPageState extends State<VideoPage> {
     return detections[closestTimestamp] ?? [];
   }
 
+  List<Map<String, dynamic>> _filterSelectedObjects(
+      List<Map<String, dynamic>> detections) {
+    return detections.where((detection) {
+      final label = detection['label'];
+      return widget.selectedObjects.contains(label);
+    }).toList();
+  }
+
   @override
   void dispose() {
     _controller.removeListener(_updateBoundingBoxes);
@@ -108,11 +116,11 @@ class _VideoPageState extends State<VideoPage> {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.only(top: 80.0),
+          padding: const EdgeInsets.only(top: 10.0),
           child: Column(
             children: [
               Container(
-                height: 200,
+                height: 300,
                 color: Colors.black26,
                 child: Stack(
                   children: [
@@ -132,13 +140,17 @@ class _VideoPageState extends State<VideoPage> {
                             final videoWidth = _controller.value.size.width;
                             final videoHeight = _controller.value.size.height;
 
+                            // Filter detections based on selected objects
+                            final filteredDetections =
+                                _filterSelectedObjects(currentDetections);
+
                             return Stack(
-                              children: currentDetections.map((detection) {
+                              children: filteredDetections.map((detection) {
                                 final box = detection['bounding_box'];
                                 final label = detection['label'];
                                 final confidence = detection['confidence'];
 
-                                // Menghitung posisi dan ukuran bounding box berdasarkan ukuran video dan tampilan saat ini
+                                // Adjust bounding box position and size
                                 final left = (box[0] / videoWidth) *
                                     constraints.maxWidth;
                                 final top = (box[1] / videoHeight) *
@@ -156,20 +168,21 @@ class _VideoPageState extends State<VideoPage> {
                                   child: Container(
                                     decoration: BoxDecoration(
                                       border: Border.all(
-                                          color: Colors.red, width: 2),
-                                      borderRadius: BorderRadius.circular(4),
+                                          color: Colors.green, width: 3),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Align(
                                       alignment: Alignment.topLeft,
                                       child: Container(
-                                        color: Colors.red,
+                                        color: Colors.green.withOpacity(0.7),
                                         padding: EdgeInsets.symmetric(
-                                            horizontal: 4, vertical: 2),
+                                            horizontal: 6, vertical: 4),
                                         child: Text(
                                           '$label ${(confidence * 100).toStringAsFixed(1)}%',
                                           style: TextStyle(
                                             color: Colors.white,
-                                            fontSize: 10,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
@@ -206,10 +219,12 @@ class _VideoPageState extends State<VideoPage> {
                     valueListenable: _controller,
                     builder: (context, VideoPlayerValue value, child) {
                       final currentDetections = _getCurrentDetections();
+                      final filteredDetections =
+                          _filterSelectedObjects(currentDetections);
                       return ListView.builder(
-                        itemCount: currentDetections.length,
+                        itemCount: filteredDetections.length,
                         itemBuilder: (context, index) {
-                          final detection = currentDetections[index];
+                          final detection = filteredDetections[index];
                           return Card(
                             margin: EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
