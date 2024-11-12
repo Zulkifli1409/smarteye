@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
+import 'package:video_player/video_player.dart';
 
 class VideoPage extends StatefulWidget {
   final String filePath;
@@ -19,6 +19,7 @@ class _VideoPageState extends State<VideoPage> {
   Map<double, List<Map<String, dynamic>>> detections = {};
   bool isProcessing = false;
   String? errorMessage;
+  bool showObjectCounts = false;
 
   @override
   void initState() {
@@ -97,6 +98,22 @@ class _VideoPageState extends State<VideoPage> {
     }).toList();
   }
 
+  Map<String, int> _getCurrentObjectCounts() {
+    if (detections.isEmpty || !_controller.value.isInitialized) return {};
+
+    final currentTime = _controller.value.position.inMilliseconds / 1000.0;
+    final closestTimestamp = detections.keys.reduce(
+        (a, b) => (a - currentTime).abs() < (b - currentTime).abs() ? a : b);
+
+    final currentDetections = detections[closestTimestamp] ?? [];
+    final objectCounts = <String, int>{};
+    for (final detection in currentDetections) {
+      final label = detection['label'];
+      objectCounts[label] = (objectCounts[label] ?? 0) + 1;
+    }
+    return objectCounts;
+  }
+
   @override
   void dispose() {
     _controller.removeListener(_updateBoundingBoxes);
@@ -107,7 +124,19 @@ class _VideoPageState extends State<VideoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Deteksi Video')),
+      appBar: AppBar(
+        title: Text('Deteksi Video'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.visibility),
+            onPressed: () {
+              setState(() {
+                showObjectCounts = !showObjectCounts;
+              });
+            },
+          ),
+        ],
+      ),
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
@@ -140,7 +169,6 @@ class _VideoPageState extends State<VideoPage> {
                             final videoWidth = _controller.value.size.width;
                             final videoHeight = _controller.value.size.height;
 
-                            // Filter detections based on selected objects
                             final filteredDetections =
                                 _filterSelectedObjects(currentDetections);
 
@@ -150,7 +178,6 @@ class _VideoPageState extends State<VideoPage> {
                                 final label = detection['label'];
                                 final confidence = detection['confidence'];
 
-                                // Adjust bounding box position and size
                                 final left = (box[0] / videoWidth) *
                                     constraints.maxWidth;
                                 final top = (box[1] / videoHeight) *
@@ -238,14 +265,43 @@ class _VideoPageState extends State<VideoPage> {
                                 backgroundColor: Colors.blue,
                               ),
                               title: Text('${detection['label']}'),
-                              subtitle: Text(
-                                  'Confidence: ${(detection['confidence'] * 100).toStringAsFixed(1)}%\n'
-                                  'Time: ${value.position.inSeconds}s'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Confidence: ${(detection['confidence'] * 100).toStringAsFixed(1)}%',
+                                  ),
+                                  Text(
+                                    'Time: ${value.position.inSeconds}s',
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },
                       );
                     },
+                  ),
+                ),
+              // Floating count text
+              if (showObjectCounts)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.6),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: Text(
+                        'Object Count: ${_getCurrentObjectCounts().values.fold(0, (sum, count) => sum + count)}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -254,12 +310,13 @@ class _VideoPageState extends State<VideoPage> {
       ),
     );
   }
+
 }
 
 class VideoControls extends StatelessWidget {
   final VideoPlayerController controller;
 
-  VideoControls({required this.controller});
+  const VideoControls({required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -267,19 +324,20 @@ class VideoControls extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          icon: Icon(
-            controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-            color: Colors.white,
-          ),
+          icon: Icon(Icons.play_arrow),
           onPressed: () {
-            controller.value.isPlaying ? controller.pause() : controller.play();
+            if (controller.value.isPlaying) {
+              controller.pause();
+            } else {
+              controller.play();
+            }
           },
         ),
         IconButton(
-          icon: Icon(Icons.stop, color: Colors.white),
+          icon: Icon(Icons.stop),
           onPressed: () {
-            controller.pause();
             controller.seekTo(Duration.zero);
+            controller.pause();
           },
         ),
       ],
