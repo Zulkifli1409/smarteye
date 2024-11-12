@@ -5,6 +5,7 @@ import os
 import torch
 from datetime import datetime
 import tempfile
+from collections import Counter
 
 app = Flask(__name__)
 
@@ -15,22 +16,27 @@ model.conf = 0.5  # Confidence threshold
 model.iou = 0.3   # IoU threshold
 model.img_size = 320  # Set lower resolution for speed
 
-# Object detection function
+# Object detection function with count feature
 def detect_objects(image):
     # Convert the image to RGB format as YOLOv5 expects RGB images
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = model(rgb_image)
     
     detections = []
+    label_counts = Counter()  # Counter for each detected object label
+
     for *box, confidence, class_id in results.xyxy[0].cpu().numpy():
+        label = model.names[int(class_id)]
         detection = {
-            "label": model.names[int(class_id)],
+            "label": label,
             "confidence": float(confidence),
             "box": [int(coord) for coord in box],
             "timestamp": datetime.now().isoformat()
         }
         detections.append(detection)
-    return detections
+        label_counts[label] += 1  # Increment count for this label
+
+    return detections, label_counts  # Return both detections and counts
 
 # Video processing function
 def process_video(video_path):
@@ -39,6 +45,7 @@ def process_video(video_path):
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     all_detections = []
+    label_counts = Counter()  # Counter for object counts in video
     current_frame = 0
     while cap.isOpened():
         ret, frame = cap.read()
@@ -46,17 +53,18 @@ def process_video(video_path):
             break
         if current_frame % 5 == 0:
             timestamp = current_frame / fps
-            detections = detect_objects(frame)
+            detections, frame_label_counts = detect_objects(frame)
             for detection in detections:
                 detection["timestamp"] = timestamp
                 detection["frame_number"] = current_frame
                 all_detections.append(detection)
+            label_counts.update(frame_label_counts)  # Update total count
         current_frame += 1
         if current_frame % 30 == 0:
             print(f"Processed {current_frame}/{frame_count} frames")
 
     cap.release()
-    return all_detections
+    return all_detections, label_counts
 
 @app.route('/api/detect_video', methods=['POST'])
 def detect_video():
@@ -69,7 +77,7 @@ def detect_video():
     video_file.save(temp_path)
 
     try:
-        detections = process_video(temp_path)
+        detections, label_counts = process_video(temp_path)
         detection_results = {}
         for detection in detections:
             timestamp = detection["timestamp"]
@@ -81,7 +89,11 @@ def detect_video():
                 "bounding_box": detection["box"],
                 "frame_number": detection["frame_number"]
             })
-        return jsonify({"total_frames_processed": len(detection_results), "detections": detection_results})
+        return jsonify({
+            "total_frames_processed": len(detection_results),
+            "detections": detection_results,
+            "label_counts": dict(label_counts)  # Total counts per object label
+        })
     finally:
         os.remove(temp_path)
         os.rmdir(temp_dir)
@@ -94,8 +106,11 @@ def detect_image():
     file = request.files['image']
     image = np.frombuffer(file.read(), np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    detected_objects = detect_objects(image)
-    return jsonify(detected_objects)
+    detected_objects, label_counts = detect_objects(image)
+    return jsonify({
+        "detected_objects": detected_objects,
+        "label_counts": dict(label_counts)  # Add object counts per label
+    })
 
 @app.route('/api/detect_realtime', methods=['POST'])
 def detect_realtime():
@@ -105,8 +120,11 @@ def detect_realtime():
     file = request.files["image"]
     image = np.frombuffer(file.read(), np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    detections = detect_objects(image)
-    return jsonify({"detections": detections})
+    detections, label_counts = detect_objects(image)
+    return jsonify({
+        "detections": detections,
+        "label_counts": dict(label_counts)  # Add object counts per label
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

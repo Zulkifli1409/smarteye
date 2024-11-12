@@ -6,8 +6,7 @@ import 'dart:convert';
 
 class ImagePage extends StatefulWidget {
   final String filePath;
-  final List<String>
-      selectedObjects; // Menambahkan parameter untuk objek yang dipilih
+  final List<String> selectedObjects;
 
   ImagePage({required this.filePath, required this.selectedObjects});
 
@@ -30,7 +29,7 @@ class _ImagePageState extends State<ImagePage> {
       }
 
       final request = http.MultipartRequest(
-          'POST', Uri.parse('http://smarteye.zulkifli.xyz/api/detect_image'));
+          'POST', Uri.parse('http://192.168.199.116:5000/api/detect_image'));
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
       final response = await request.send();
@@ -39,7 +38,6 @@ class _ImagePageState extends State<ImagePage> {
         final objects =
             List<Map<String, dynamic>>.from(json.decode(jsonResponse) ?? []);
 
-        // Filter objects that are in the selected objects list
         setState(() {
           detectedObjects = objects.where((object) {
             final label = object['label'] ?? '';
@@ -99,7 +97,6 @@ class _ImagePageState extends State<ImagePage> {
                           final containerWidth = constraints.maxWidth;
                           final containerHeight = constraints.maxHeight;
 
-                          // Calculate scale factors for bounding boxes
                           final scaleX = containerWidth / originalImage.width;
                           final scaleY = containerHeight / originalImage.height;
 
@@ -195,6 +192,34 @@ class _ImagePageState extends State<ImagePage> {
                       },
                     ),
                   ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  Map<String, int> objectCounts = {};
+
+                  for (var object in detectedObjects) {
+                    final label = object['label'] ?? 'Unknown';
+                    if (objectCounts.containsKey(label)) {
+                      objectCounts[label] = objectCounts[label]! + 1;
+                    } else {
+                      objectCounts[label] = 1;
+                    }
+                  }
+
+                  String countMessage = objectCounts.entries
+                      .map((entry) => '${entry.value} ${entry.key}')
+                      .join(', ');
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Total objek terdeteksi: $countMessage'),
+                    ),
+                  );
+                },
+                child: Text('Hitung Objek'),
+              ),
+            ),
           ],
         ),
       ),
@@ -219,7 +244,6 @@ class BoundingBoxPainter extends CustomPainter {
     for (var object in objects) {
       final box = object['box'];
       if (box != null) {
-        // Adjust bounding box coordinates by scale factor
         final left = (box[0] * scaleX).clamp(0.0, size.width);
         final top = (box[1] * scaleY).clamp(0.0, size.height);
         final right = (box[2] * scaleX).clamp(left, size.width);
@@ -228,7 +252,6 @@ class BoundingBoxPainter extends CustomPainter {
         final rect = Rect.fromLTRB(left, top, right, bottom);
         canvas.drawRect(rect, paint);
 
-        // Draw label and confidence
         final label = object['label'] ?? 'Unknown';
         final confidence = object['confidence'] ?? 0.0;
 
