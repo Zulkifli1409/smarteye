@@ -29,14 +29,15 @@ class _ImagePageState extends State<ImagePage> {
       }
 
       final request = http.MultipartRequest(
-          'POST', Uri.parse('http://192.168.199.116:5000/api/detect_image'));
+          'POST', Uri.parse('http://smarteye.zulkifli.xyz/api/detect_image'));
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
       final response = await request.send();
       if (response.statusCode == 200) {
         final jsonResponse = await response.stream.bytesToString();
+        final data = json.decode(jsonResponse) as Map<String, dynamic>;
         final objects =
-            List<Map<String, dynamic>>.from(json.decode(jsonResponse) ?? []);
+            List<Map<String, dynamic>>.from(data['detected_objects'] ?? []);
 
         setState(() {
           detectedObjects = objects.where((object) {
@@ -51,6 +52,7 @@ class _ImagePageState extends State<ImagePage> {
       print("Error during object detection: $e");
     }
   }
+
 
   Future<void> _loadOriginalImage() async {
     try {
