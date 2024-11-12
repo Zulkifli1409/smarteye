@@ -18,7 +18,7 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   Future<void>? _initializeControllerFuture;
   List<Detection> detectedObjects = [];
   Timer? _timer;
-  final String apiUrl = 'http://smarteye.zulkifli.xyz/api/detect_realtime';
+  final String apiUrl = 'https://smarteye.zulkifli.xyz/api/detect_realtime';
   bool isLoading = false;
   bool isFrontCamera = false;
   bool isFlashOn = false;

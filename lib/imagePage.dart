@@ -29,7 +29,7 @@ class _ImagePageState extends State<ImagePage> {
       }
 
       final request = http.MultipartRequest(
-          'POST', Uri.parse('http://smarteye.zulkifli.xyz/api/detect_image'));
+          'POST', Uri.parse('https://smarteye.zulkifli.xyz/api/detect_image'));
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
       final response = await request.send();
@@ -52,7 +52,6 @@ class _ImagePageState extends State<ImagePage> {
       print("Error during object detection: $e");
     }
   }
-
 
   Future<void> _loadOriginalImage() async {
     try {
@@ -117,9 +116,15 @@ class _ImagePageState extends State<ImagePage> {
                                     detectedObjects,
                                     scaleX,
                                     scaleY,
+                                    Size(
+                                      originalImage.width.toDouble(),
+                                      originalImage.height.toDouble(),
+                                    ),
                                   ),
-                                  size: Size(originalImage.width * scaleX,
-                                      originalImage.height * scaleY),
+                                  size: Size(
+                                    originalImage.width * scaleX,
+                                    originalImage.height * scaleY,
+                                  ),
                                 ),
                             ],
                           );
@@ -233,8 +238,9 @@ class BoundingBoxPainter extends CustomPainter {
   final List<Map<String, dynamic>> objects;
   final double scaleX;
   final double scaleY;
+  final Size imageSize;
 
-  BoundingBoxPainter(this.objects, this.scaleX, this.scaleY);
+  BoundingBoxPainter(this.objects, this.scaleX, this.scaleY, this.imageSize);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -246,10 +252,10 @@ class BoundingBoxPainter extends CustomPainter {
     for (var object in objects) {
       final box = object['box'];
       if (box != null) {
-        final left = (box[0] * scaleX).clamp(0.0, size.width);
-        final top = (box[1] * scaleY).clamp(0.0, size.height);
-        final right = (box[2] * scaleX).clamp(left, size.width);
-        final bottom = (box[3] * scaleY).clamp(top, size.height);
+        final left = (box[0] * scaleX).clamp(0.0, imageSize.width);
+        final top = (box[1] * scaleY).clamp(0.0, imageSize.height);
+        final right = (box[2] * scaleX).clamp(left, imageSize.width);
+        final bottom = (box[3] * scaleY).clamp(top, imageSize.height);
 
         final rect = Rect.fromLTRB(left, top, right, bottom);
         canvas.drawRect(rect, paint);
