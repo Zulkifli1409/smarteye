@@ -3,6 +3,8 @@ import 'package:camera/camera.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'db_helper.dart';
+import 'detected_object.dart';
 
 class LiveCameraPage extends StatefulWidget {
   final List<String> selectedObjects;
@@ -24,6 +26,7 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   bool isFlashOn = false;
   double zoomLevel = 1.0;
   Timer? _countTimer;
+  final DBHelper dbHelper = DBHelper(); // Add this line
 
   final Color primaryColor = Color(0xFF1A237E);
   final Color secondaryColor = Color(0xFF0288D1);
@@ -68,12 +71,26 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
         final responseBody = await response.stream.bytesToString();
         final data = json.decode(responseBody);
         if (data['detections'] != null) {
+          final List<Detection> newDetections = (data['detections'] as List)
+              .map((detection) => Detection.fromJson(detection))
+              .where((detection) =>
+                  widget.selectedObjects.contains(detection.label))
+              .toList();
+
+          // Save detections to database
+          for (var detection in newDetections) {
+            final detectedObject = DetectedObject(
+              label: detection.label,
+              confidence: detection.confidence,
+              boundingBox: detection.box.toString(),
+              category: "Realtime",
+              date: DateTime.now().toIso8601String(),
+            );
+            await dbHelper.insertObject(detectedObject);
+          }
+
           setState(() {
-            detectedObjects = (data['detections'] as List)
-                .map((detection) => Detection.fromJson(detection))
-                .where((detection) =>
-                    widget.selectedObjects.contains(detection.label))
-                .toList(); // Filter hasil deteksi berdasarkan selectedObjects
+            detectedObjects = newDetections;
           });
         }
       }
