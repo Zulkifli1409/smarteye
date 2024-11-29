@@ -20,7 +20,7 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   Future<void>? _initializeControllerFuture;
   List<Detection> detectedObjects = [];
   Timer? _timer;
-  final String apiUrl = 'http://192.168.1.5:5000/api/detect_realtime';
+  final String apiUrl = 'https://smarteye.zulkifli.xyz/api/detect_realtime';
   bool isLoading = false;
   bool isFrontCamera = false;
   bool isFlashOn = false;
@@ -160,17 +160,15 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
 
   void _countObjects() {
     if (isFloatingVisible) {
-      // Cancel the count timer when hiding overlay
       _countTimer?.cancel();
       _countTimer = null;
       overlayEntry?.remove();
       overlayEntry = null;
       isFloatingVisible = false;
     } else {
-      // Create and show the overlay
       overlayEntry = OverlayEntry(
         builder: (context) => Positioned(
-          top: MediaQuery.of(context).size.height * 0.2,
+          top: MediaQuery.of(context).size.height * 0.15,
           left: MediaQuery.of(context).size.width * 0.1,
           right: MediaQuery.of(context).size.width * 0.1,
           child: Material(
@@ -178,44 +176,159 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
             child: ValueListenableBuilder<Map<String, int>>(
               valueListenable: _objectCountNotifier,
               builder: (context, counts, child) {
-                String countMessage = counts.entries
-                    .map((entry) => '${entry.value} ${entry.key}')
-                    .join(', ');
-
                 return Container(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [primaryColor, secondaryColor],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        primaryColor.withOpacity(0.95),
+                        secondaryColor.withOpacity(0.95),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 10,
-                        spreadRadius: 2,
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 15,
+                        spreadRadius: 5,
+                        offset: Offset(0, 5),
                       ),
                     ],
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Detected Objects',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.analytics_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Detected Objects',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        countMessage.isEmpty
-                            ? 'No objects detected'
-                            : countMessage,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                      SizedBox(height: 20),
+                      if (counts.isEmpty)
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'No objects detected',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 16,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          alignment: WrapAlignment.center,
+                          children: counts.entries.map((entry) {
+                            return Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    spreadRadius: 0,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      entry.value.toString(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    entry.key,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: () {
+                          _countTimer?.cancel();
+                          overlayEntry?.remove();
+                          overlayEntry = null;
+                          isFloatingVisible = false;
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.close,
+                                color: Colors.white.withOpacity(0.8),
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Close',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -227,7 +340,6 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
         ),
       );
 
-      // Add the overlay and start realtime counting
       Overlay.of(context)?.insert(overlayEntry!);
       isFloatingVisible = true;
       _startRealtimeCounting();

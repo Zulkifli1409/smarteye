@@ -36,7 +36,7 @@ class _ImagePageState extends State<ImagePage> {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.1.5:5000/api/detect_image'),
+        Uri.parse('https://smarteye.zulkifli.xyz/api/detect_image'),
       );
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
@@ -289,41 +289,124 @@ class _ImagePageState extends State<ImagePage> {
               ),
               Padding(
                 padding: EdgeInsets.all(16),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Map<String, int> counts = {};
-                    for (var obj in detectedObjects) {
-                      final label = obj['label'] ?? 'Unknown';
-                      counts[label] = (counts[label] ?? 0) + 1;
-                    }
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Detected: ${counts.entries.map((e) => '${e.value} ${e.key}').join(', ')}',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        backgroundColor: Color(0xFF1A237E),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        margin: EdgeInsets.all(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 15,
+                        spreadRadius: 1,
+                        offset: Offset(0, 4),
                       ),
-                    );
-                  },
-                  icon: Icon(Icons.analytics_outlined),
-                  label: Text(
-                    'Count Objects',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ],
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.15),
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Map<String, int> counts = {};
+                      for (var obj in detectedObjects) {
+                        final label = obj['label'] ?? 'Unknown';
+                        counts[label] = (counts[label] ?? 0) + 1;
+                      }
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Container(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.analytics_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    'Detected: ${counts.entries.map((e) => '${e.value} ${e.key}').join(', ')}',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          backgroundColor: Color(0xFF1A237E).withOpacity(0.95),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          margin: EdgeInsets.all(16),
+                          elevation: 8,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF1A237E).withOpacity(0.9),
+                            Color(0xFF0288D1).withOpacity(0.9),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.analytics_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Text(
+                            'Count Objects',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

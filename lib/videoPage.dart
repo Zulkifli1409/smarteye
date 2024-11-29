@@ -48,7 +48,7 @@ class _VideoPageState extends State<VideoPage> {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.1.5:5000/api/detect_video'),
+        Uri.parse('https://smarteye.zulkifli.xyz/api/detect_video'),
       );
       request.files.add(await http.MultipartFile.fromPath('video', file.path));
 
@@ -384,38 +384,145 @@ class _VideoPageState extends State<VideoPage> {
   Widget _buildObjectCounter() {
     return Container(
       margin: EdgeInsets.all(16),
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1A237E).withOpacity(0.9),
+            Color(0xFF0288D1).withOpacity(0.9),
+          ],
         ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            spreadRadius: 2,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: ValueListenableBuilder(
         valueListenable: _controller,
         builder: (context, value, child) {
-          final counts = Map<String, int>.fromIterable(
-            _getCurrentDetections()
-                .where((d) => widget.selectedObjects.contains(d['label'])),
-            key: (d) => d['label'] as String,
-            value: (d) => 1,
-          );
+          Map<String, int> objectCounts = {};
+          final currentDetections = _getCurrentDetections()
+              .where((d) => widget.selectedObjects.contains(d['label']));
 
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          for (var detection in currentDetections) {
+            final label = detection['label'] as String;
+            objectCounts[label] = (objectCounts[label] ?? 0) + 1;
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.analytics, color: Colors.white),
-              SizedBox(width: 8),
-              Text(
-                'Objects Detected: ${counts.length}',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.analytics_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'Objects Detected',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              SizedBox(height: 16),
+              if (objectCounts.isEmpty)
+                Text(
+                  'No objects detected',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: objectCounts.entries.map((entry) {
+                    return Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                entry.value.toString(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            entry.key,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
             ],
           );
         },
