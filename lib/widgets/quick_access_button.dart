@@ -9,24 +9,42 @@ class QuickAccessButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildButton(
-            context,
-            Icons.camera_alt,
-            'Live Camera',
-            Colors.blue,
-            LiveCameraPage(
-                selectedObjects: [])), // Menambahkan default empty list
-        SizedBox(height: 16.0), // Jarak antara tombol
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildButtonWithFilePicker(context, Icons.video_camera_back,
+        // Live Camera Button Row
+        SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: _buildButton(
+              context,
+              Icons.camera_alt,
+              'Live Camera',
+              Colors.blue,
+              LiveCameraPage(selectedObjects: []),
+            ),
+          ),
+        ),
+        SizedBox(height: 16.0),
+
+        // Video Button Row
+        SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: _buildButtonWithFilePicker(context, Icons.video_camera_back,
                 'Video', Colors.green, 'video'),
-            _buildButtonWithFilePicker(
+          ),
+        ),
+        SizedBox(height: 16.0),
+
+        // Image Button Row
+        SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: _buildButtonWithFilePicker(
                 context, Icons.image, 'Gambar', Colors.orange, 'image'),
-          ],
+          ),
         ),
       ],
     );

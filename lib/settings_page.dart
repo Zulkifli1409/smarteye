@@ -7,21 +7,90 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   List<String> selectedObjects = [];
-  List<String> _allObjects = [
-    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
-    'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
-    'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra',
-    'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
-    'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove',
-    'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork',
-    'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli',
-    'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant',
-    'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard',
-    'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
-    'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+  final List<String> _allObjects = [
+    'person',
+    'bicycle',
+    'car',
+    'motorcycle',
+    'airplane',
+    'bus',
+    'train',
+    'truck',
+    'boat',
+    'traffic light',
+    'fire hydrant',
+    'stop sign',
+    'parking meter',
+    'bench',
+    'bird',
+    'cat',
+    'dog',
+    'horse',
+    'sheep',
+    'cow',
+    'elephant',
+    'bear',
+    'zebra',
+    'giraffe',
+    'backpack',
+    'umbrella',
+    'handbag',
+    'tie',
+    'suitcase',
+    'frisbee',
+    'skis',
+    'snowboard',
+    'sports ball',
+    'kite',
+    'baseball bat',
+    'baseball glove',
+    'skateboard',
+    'surfboard',
+    'tennis racket',
+    'bottle',
+    'wine glass',
+    'cup',
+    'fork',
+    'knife',
+    'spoon',
+    'bowl',
+    'banana',
+    'apple',
+    'sandwich',
+    'orange',
+    'broccoli',
+    'carrot',
+    'hot dog',
+    'pizza',
+    'donut',
+    'cake',
+    'chair',
+    'couch',
+    'potted plant',
+    'bed',
+    'dining table',
+    'toilet',
+    'tv',
+    'laptop',
+    'mouse',
+    'remote',
+    'keyboard',
+    'cell phone',
+    'microwave',
+    'oven',
+    'toaster',
+    'sink',
+    'refrigerator',
+    'book',
+    'clock',
+    'vase',
+    'scissors',
+    'teddy bear',
+    'hair drier',
+    'toothbrush'
   ];
   List<String> _filteredObjects = [];
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -49,89 +118,120 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Pilih Objek yang Ingin Dideteksi'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue, Colors.indigo],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Select Detection Objects',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                blurRadius: 10.0,
+                color: Colors.black45,
+                offset: Offset(0, 3),
+              ),
+            ],
           ),
         ),
+        centerTitle: true,
       ),
       body: Container(
         decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('lib/image/bg.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.5),
-              BlendMode.darken,
-            ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF4A90E2).withOpacity(0.8),
+              Color(0xFF50C878).withOpacity(0.8),
+            ],
           ),
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Cari objek...',
-                  prefixIcon: Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.7),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  labelStyle: TextStyle(color: Colors.white),
-                ),
-                style: TextStyle(color: Colors.white), // Set the text color to white
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                children: _filteredObjects.map((object) {
-                  return CheckboxListTile(
-                    title: Text(
-                      object,
-                      style: TextStyle(
-                        color: Colors.white, // Set text color to white for the list
-                      ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search objects...',
+                    prefixIcon: Icon(Icons.search, color: Colors.white70),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.2),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
                     ),
-                    value: selectedObjects.contains(object),
-                    onChanged: (bool? value) {
-                      setState(() {
-                        if (value == true) {
-                          selectedObjects.add(object);
-                        } else {
-                          selectedObjects.remove(object);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context, selectedObjects);
-                },
-                child: Text('Simpan Pilihan'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, // Replaced primary with backgroundColor
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    hintStyle: TextStyle(color: Colors.white70),
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 30),
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: Container(
+                  margin: EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: ListView.builder(
+                    itemCount: _filteredObjects.length,
+                    itemBuilder: (context, index) {
+                      final object = _filteredObjects[index];
+                      return CheckboxListTile(
+                        title: Text(
+                          object,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        activeColor: Colors.greenAccent,
+                        checkColor: Colors.black,
+                        value: selectedObjects.contains(object),
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              selectedObjects.add(object);
+                            } else {
+                              selectedObjects.remove(object);
+                            }
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.trailing,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context, selectedObjects);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                  ),
+                  child: Text(
+                    'Save Selection',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

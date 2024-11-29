@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
+import 'db_helper.dart';
+import 'detected_object.dart';
 
 class VideoPage extends StatefulWidget {
   final String filePath;
@@ -50,16 +52,16 @@ class _VideoPageState extends State<VideoPage> {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('https://smarteye.zulkifli.xyz/api/detect_video'),
+        Uri.parse('http://192.168.1.5:5000/api/detect_video'),
       );
       request.files.add(await http.MultipartFile.fromPath('video', file.path));
 
       final response = await request.send();
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(await response.stream.bytesToString());
+        final results = jsonResponse['detections'] as Map<String, dynamic>;
 
         setState(() {
-          final results = jsonResponse['detections'] as Map<String, dynamic>;
           detections = Map.fromEntries(
             results.entries.map((e) => MapEntry(
                   double.parse(e.key),
@@ -68,6 +70,24 @@ class _VideoPageState extends State<VideoPage> {
           );
           isProcessing = false;
         });
+
+        // Save detections to database
+        final dbHelper = DBHelper();
+        for (var timestamp in detections.keys) {
+          final detectionsAtTime = detections[timestamp]!;
+          for (var detection in detectionsAtTime) {
+            if (widget.selectedObjects.contains(detection['label'])) {
+              final detectedObject = DetectedObject(
+                label: detection['label'],
+                confidence: detection['confidence'],
+                boundingBox: json.encode(detection['bounding_box']),
+                category: "Video", // Pastikan kategori diisi dengan benar
+                date: DateTime.now().toIso8601String(),
+              );
+              await dbHelper.insertObject(detectedObject);
+            }
+          }
+        }
       } else {
         throw Exception("Failed to process video: ${response.statusCode}");
       }
@@ -79,6 +99,7 @@ class _VideoPageState extends State<VideoPage> {
       print("Error during video detection: $e");
     }
   }
+
 
   List<Map<String, dynamic>> _getCurrentDetections() {
     if (detections.isEmpty || !_controller.value.isInitialized) return [];
@@ -124,11 +145,34 @@ class _VideoPageState extends State<VideoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Deteksi Video'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Video Detection',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                blurRadius: 10.0,
+                color: Colors.black45,
+                offset: Offset(2.0, 2.0),
+              )
+            ],
+          ),
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.visibility),
+            icon: Icon(
+              Icons.visibility,
+              color: showObjectCounts ? Colors.greenAccent : Colors.white,
+            ),
             onPressed: () {
               setState(() {
                 showObjectCounts = !showObjectCounts;
@@ -136,163 +180,242 @@ class _VideoPageState extends State<VideoPage> {
             },
           ),
         ],
+        centerTitle: true,
       ),
       body: Container(
         decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('lib/image/bg.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.blue.shade900,
+              Colors.blue.shade600,
+              Colors.blue.shade300,
+            ],
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 10.0),
+        child: SafeArea(
           child: Column(
             children: [
-              Container(
-                height: 300,
-                color: Colors.black26,
-                child: Stack(
-                  children: [
-                    Center(
-                      child: _controller.value.isInitialized
-                          ? AspectRatio(
-                              aspectRatio: _controller.value.aspectRatio,
-                              child: VideoPlayer(_controller),
-                            )
-                          : CircularProgressIndicator(),
-                    ),
-                    if (_controller.value.isInitialized)
-                      Positioned.fill(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final currentDetections = _getCurrentDetections();
-                            final videoWidth = _controller.value.size.width;
-                            final videoHeight = _controller.value.size.height;
+              Expanded(
+                flex: 3,
+                child: Container(
+                  margin: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 15,
+                        offset: Offset(0, 10),
+                      )
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Center(
+                          child: _controller.value.isInitialized
+                              ? AspectRatio(
+                                  aspectRatio: _controller.value.aspectRatio,
+                                  child: VideoPlayer(_controller),
+                                )
+                              : CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                        ),
+                        if (_controller.value.isInitialized)
+                          Positioned.fill(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final currentDetections =
+                                    _getCurrentDetections();
+                                final videoWidth = _controller.value.size.width;
+                                final videoHeight =
+                                    _controller.value.size.height;
 
-                            final filteredDetections =
-                                _filterSelectedObjects(currentDetections);
+                                final filteredDetections =
+                                    _filterSelectedObjects(currentDetections);
 
-                            return Stack(
-                              children: filteredDetections.map((detection) {
-                                final box = detection['bounding_box'];
-                                final label = detection['label'];
-                                final confidence = detection['confidence'];
+                                return Stack(
+                                  children: filteredDetections.map((detection) {
+                                    final box = detection['bounding_box'];
+                                    final label = detection['label'];
+                                    final confidence = detection['confidence'];
 
-                                final left = (box[0] / videoWidth) *
-                                    constraints.maxWidth;
-                                final top = (box[1] / videoHeight) *
-                                    constraints.maxHeight;
-                                final width = (box[2] / videoWidth) *
-                                    constraints.maxWidth;
-                                final height = (box[3] / videoHeight) *
-                                    constraints.maxHeight;
+                                    final left = (box[0] / videoWidth) *
+                                        constraints.maxWidth;
+                                    final top = (box[1] / videoHeight) *
+                                        constraints.maxHeight;
+                                    final width = (box[2] / videoWidth) *
+                                        constraints.maxWidth;
+                                    final height = (box[3] / videoHeight) *
+                                        constraints.maxHeight;
 
-                                return Positioned(
-                                  left: left,
-                                  top: top,
-                                  width: width,
-                                  height: height,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.green, width: 3),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Align(
-                                      alignment: Alignment.topLeft,
+                                    return Positioned(
+                                      left: left,
+                                      top: top,
+                                      width: width,
+                                      height: height,
                                       child: Container(
-                                        color: Colors.green.withOpacity(0.7),
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 4),
-                                        child: Text(
-                                          '$label ${(confidence * 100).toStringAsFixed(1)}%',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: Colors.greenAccent,
+                                              width: 3),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Align(
+                                          alignment: Alignment.topLeft,
+                                          child: Container(
+                                            color: Colors.greenAccent
+                                                .withOpacity(0.7),
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 4),
+                                            child: Text(
+                                              '$label ${(confidence * 100).toStringAsFixed(1)}%',
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  }).toList(),
                                 );
-                              }).toList(),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              SizedBox(height: 20),
               VideoControls(controller: _controller),
-              SizedBox(height: 20),
-              if (isProcessing)
-                Center(
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 10),
-                      Text('Processing video...',
-                          style: TextStyle(color: Colors.white)),
-                    ],
-                  ),
-                )
-              else if (errorMessage != null)
-                Text(errorMessage!, style: TextStyle(color: Colors.red))
-              else
-                Expanded(
-                  child: ValueListenableBuilder(
-                    valueListenable: _controller,
-                    builder: (context, VideoPlayerValue value, child) {
-                      final currentDetections = _getCurrentDetections();
-                      final filteredDetections =
-                          _filterSelectedObjects(currentDetections);
-                      return ListView.builder(
-                        itemCount: filteredDetections.length,
-                        itemBuilder: (context, index) {
-                          final detection = filteredDetections[index];
-                          return Card(
-                            margin: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                child:
-                                    Text(detection['label'][0].toUpperCase()),
-                                backgroundColor: Colors.blue,
+              Expanded(
+                flex: 2,
+                child: Container(
+                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: isProcessing
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
-                              title: Text('${detection['label']}'),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Confidence: ${(detection['confidence'] * 100).toStringAsFixed(1)}%',
-                                  ),
-                                  Text(
-                                    'Time: ${value.position.inSeconds}s',
-                                  ),
-                                ],
+                              SizedBox(height: 10),
+                              Text(
+                                'Processing video...',
+                                style: TextStyle(color: Colors.white),
                               ),
+                            ],
+                          ),
+                        )
+                      : errorMessage != null
+                          ? Center(
+                              child: Text(
+                                errorMessage!,
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            )
+                          : ValueListenableBuilder(
+                              valueListenable: _controller,
+                              builder:
+                                  (context, VideoPlayerValue value, child) {
+                                final currentDetections =
+                                    _getCurrentDetections();
+                                final filteredDetections =
+                                    _filterSelectedObjects(currentDetections);
+                                return ListView.builder(
+                                  itemCount: filteredDetections.length,
+                                  itemBuilder: (context, index) {
+                                    final detection = filteredDetections[index];
+                                    return Container(
+                                      margin: EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.white.withOpacity(0.3),
+                                            Colors.white.withOpacity(0.1),
+                                          ],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ),
+                                        borderRadius: BorderRadius.circular(15),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black12,
+                                            blurRadius: 10,
+                                            offset: Offset(0, 5),
+                                          )
+                                        ],
+                                      ),
+                                      child: ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor:
+                                              Colors.white.withOpacity(0.3),
+                                          child: Text(
+                                            detection['label'][0].toUpperCase(),
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        title: Text(
+                                          detection['label'],
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Confidence: ${(detection['confidence'] * 100).toStringAsFixed(1)}%',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Time: ${value.position.inSeconds}s',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
                             ),
-                          );
-                        },
-                      );
-                    },
-                  ),
                 ),
-              // Floating count text
+              ),
               if (showObjectCounts)
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: Padding(
-                    padding: const EdgeInsets.all(20.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Container(
-                      color: Colors.black.withOpacity(0.6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       padding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       child: Text(
                         'Object Count: ${_getCurrentObjectCounts().values.fold(0, (sum, count) => sum + count)}',
                         style: TextStyle(
@@ -310,7 +433,6 @@ class _VideoPageState extends State<VideoPage> {
       ),
     );
   }
-
 }
 
 class VideoControls extends StatelessWidget {

@@ -18,7 +18,7 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   Future<void>? _initializeControllerFuture;
   List<Detection> detectedObjects = [];
   Timer? _timer;
-  final String apiUrl = 'https://smarteye.zulkifli.xyz/api/detect_realtime';
+  final String apiUrl = 'http://192.168.1.5:5000/api/detect_realtime';
   bool isLoading = false;
   bool isFrontCamera = false;
   bool isFlashOn = false;
@@ -134,27 +134,66 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
     }
   }
 
+  bool isFloatingVisible = false; // Status apakah teks floating sedang aktif
+  OverlayEntry? overlayEntry; // Referensi ke OverlayEntry
+
   void _countObjects() {
-    Map<String, int> objectCounts = {};
+    if (isFloatingVisible) {
+      // Jika teks floating sedang aktif, hapus Overlay dan ubah status
+      overlayEntry?.remove();
+      overlayEntry = null;
+      isFloatingVisible = false;
+    } else {
+      // Jika teks floating tidak aktif, buat Overlay baru
+      Map<String, int> objectCounts = {};
 
-    for (var detection in detectedObjects) {
-      final label = detection.label;
-      if (objectCounts.containsKey(label)) {
-        objectCounts[label] = objectCounts[label]! + 1;
-      } else {
-        objectCounts[label] = 1;
+      for (var detection in detectedObjects) {
+        final label = detection.label;
+        if (objectCounts.containsKey(label)) {
+          objectCounts[label] = objectCounts[label]! + 1;
+        } else {
+          objectCounts[label] = 1;
+        }
       }
+
+      String countMessage = objectCounts.entries
+          .map((entry) => '${entry.value} ${entry.key}')
+          .join(', ');
+
+      // Membuat OverlayEntry
+      overlayEntry = OverlayEntry(
+        builder: (context) => Positioned(
+          top: MediaQuery.of(context).size.height * 0.2,
+          left: MediaQuery.of(context).size.width * 0.1,
+          right: MediaQuery.of(context).size.width * 0.1,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  'Total objek terdeteksi:\n$countMessage',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Tambahkan Overlay ke layar dan ubah status
+      Overlay.of(context)?.insert(overlayEntry!);
+      isFloatingVisible = true;
     }
-
-    String countMessage = objectCounts.entries
-        .map((entry) => '${entry.value} ${entry.key}')
-        .join(', ');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Total objek terdeteksi: $countMessage'),
-      ),
-    );
   }
 
   @override

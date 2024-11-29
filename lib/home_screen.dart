@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'settings_page.dart';
 import 'widgets/quick_access_button.dart';
-import 'detection_results_page.dart';
+import 'history.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
+import 'about.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
@@ -14,102 +16,176 @@ class HomeScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-                'lib/image/bg.jpg'), // Ganti dengan path gambar latar belakang
-            fit: BoxFit.cover,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.blueAccent,
+        elevation: 5,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.menu, color: Colors.white, size: 30),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        actions: [
+          Container(
+            margin: EdgeInsets.only(right: 16),
+            child: CircleAvatar(
+              backgroundColor: Colors.white24,
+              child: IconButton(
+                icon: Icon(Icons.info_outline, color: Colors.white),
+                onPressed: () {
+                  showAboutDialog(
+                    context: context,
+                    applicationName: 'SmartEye',
+                    applicationVersion: '1.0.0',
+                    children: [
+                      Text('Advanced AI-powered object detection application')
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+        title: Row(
+          children: [
+            Image.asset(
+              'lib/image/logo.png',
+              width: 40,
+              height: 40,
+            ),
+            SizedBox(width: 10),
+            Text(
+              'SmartEye',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+      ),
+      drawer: _buildDrawer(context),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF4A90E2).withOpacity(0.9),
+              Color(0xFF50C878).withOpacity(0.9),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
             children: [
-              // Menambahkan Logo
-              Image.asset(
-                'lib/image/logo.png', // Ganti dengan path logo Anda
-                width: 200,
-                height: 200,
-              ),
-              // SizedBox(height: 10.0), // Jarak antara logo dan deskripsi
+              // Main content
+              Column(
+                children: [
+                  SizedBox(height: 40),
 
-              // Deskripsi Aplikasi
-              Text(
-                'Aplikasi SmartEye untuk deteksi objek real-time menggunakan teknologi AI.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white, // Warna teks
-                  fontSize: 16, // Ukuran font
-                  fontWeight: FontWeight.w500, // Ketebalan font
-                ),
-              ),
-              SizedBox(height: 20.0), // Jarak antara deskripsi dan carousel
+                  // Enhanced Carousel
+                  CarouselSlider(
+                    options: CarouselOptions(
+                      height: 250,
+                      autoPlay: true,
+                      enlargeCenterPage: true,
+                      aspectRatio: 16 / 9,
+                      viewportFraction: 0.8,
+                    ),
+                    items: imgList
+                        .map((item) => Container(
+                              margin: EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                image: DecorationImage(
+                                  image: AssetImage(item),
+                                  fit: BoxFit.cover,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black45,
+                                    blurRadius: 15,
+                                    offset: Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
 
-              // Carousel Slider
-              CarouselSlider(
-                options: CarouselOptions(
-                  height: 200,
-                  autoPlay: true,
-                  enlargeCenterPage: true,
-                  aspectRatio: 2.0,
-                  viewportFraction: 0.8,
-                ),
-                items: imgList
-                    .map((item) => Container(
-                          margin: EdgeInsets.symmetric(horizontal: 5.0),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10.0),
-                            image: DecorationImage(
-                              image: AssetImage(item),
-                              fit: BoxFit.cover,
-                            ),
+                  SizedBox(height: 20),
+
+                  // New Card with transparent background and typing text
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Card(
+                      color: Colors.transparent, // Make the card transparent
+                      elevation: 0, // Remove elevation to enhance transparency
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.1), // Adjust opacity of the background color
+                          borderRadius: BorderRadius.circular(15), // Maintain rounded corners
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Detection Overview',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.analytics_outlined,
+                                    color: Colors.blue[700],
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 10),
+
+                              // Typing text effect with repeated animation
+                              AnimatedTextKit(
+                                animatedTexts: [
+                                  TypewriterAnimatedText(
+                                    'Explore advanced AI-powered object detection capabilities. '
+                                    'SmartEye provides real-time, accurate insights for various scenarios.',
+                                    speed: Duration(milliseconds: 100),
+                                    textStyle: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                                isRepeatingAnimation: true,
+                              ),
+                            ],
                           ),
-                        ))
-                    .toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 20.0), // Jarak antara carousel dan tombol
 
-              QuickAccessButton(),
-              SizedBox(height: 20.0), // Jarak antar elemen
-
-              // Card History
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                elevation: 4,
-                child: ListTile(
-                  leading: Icon(Icons.history, color: Colors.blue),
-                  title: Text('History'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => DetectionResultsPage()),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: 12.0),
-
-              // Card Pengaturan
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                elevation: 4,
-                child: ListTile(
-                  leading: Icon(Icons.settings, color: Colors.green),
-                  title: Text('Pengaturan'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SettingsPage()),
-                    );
-                  },
-                ),
+              // QuickAccessButton fixed at the bottom
+              Positioned(
+                bottom: 100,
+                left: 0,
+                right: 0,
+                child: QuickAccessButton(),
               ),
             ],
           ),
@@ -117,4 +193,51 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  // Custom method to create the Drawer
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.blue,
+            ),
+            child: Center(
+              child: Text(
+                'SmartEye',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: Icon(Icons.history),
+            title: Text('History'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => HistoryPage()),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.settings),
+            title: Text('Settings'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AboutPage()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
+
