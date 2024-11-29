@@ -23,6 +23,10 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
   bool isFrontCamera = false;
   bool isFlashOn = false;
   double zoomLevel = 1.0;
+  Timer? _countTimer;
+
+  final Color primaryColor = Color(0xFF1A237E);
+  final Color secondaryColor = Color(0xFF0288D1);
 
   @override
   void initState() {
@@ -139,28 +143,14 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
 
   void _countObjects() {
     if (isFloatingVisible) {
-      // Jika teks floating sedang aktif, hapus Overlay dan ubah status
+      // Cancel the count timer when hiding overlay
+      _countTimer?.cancel();
+      _countTimer = null;
       overlayEntry?.remove();
       overlayEntry = null;
       isFloatingVisible = false;
     } else {
-      // Jika teks floating tidak aktif, buat Overlay baru
-      Map<String, int> objectCounts = {};
-
-      for (var detection in detectedObjects) {
-        final label = detection.label;
-        if (objectCounts.containsKey(label)) {
-          objectCounts[label] = objectCounts[label]! + 1;
-        } else {
-          objectCounts[label] = 1;
-        }
-      }
-
-      String countMessage = objectCounts.entries
-          .map((entry) => '${entry.value} ${entry.key}')
-          .join(', ');
-
-      // Membuat OverlayEntry
+      // Create and show the overlay
       overlayEntry = OverlayEntry(
         builder: (context) => Positioned(
           top: MediaQuery.of(context).size.height * 0.2,
@@ -168,201 +158,359 @@ class _LiveCameraPageState extends State<LiveCameraPage> {
           right: MediaQuery.of(context).size.width * 0.1,
           child: Material(
             color: Colors.transparent,
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  'Total objek terdeteksi:\n$countMessage',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            child: ValueListenableBuilder<Map<String, int>>(
+              valueListenable: _objectCountNotifier,
+              builder: (context, counts, child) {
+                String countMessage = counts.entries
+                    .map((entry) => '${entry.value} ${entry.key}')
+                    .join(', ');
+
+                return Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primaryColor, secondaryColor],
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                ),
-              ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Detected Objects',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        countMessage.isEmpty
+                            ? 'No objects detected'
+                            : countMessage,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ),
       );
 
-      // Tambahkan Overlay ke layar dan ubah status
+      // Add the overlay and start realtime counting
       Overlay.of(context)?.insert(overlayEntry!);
       isFloatingVisible = true;
+      _startRealtimeCounting();
     }
+  }
+
+  // Add these new variables and methods
+  final ValueNotifier<Map<String, int>> _objectCountNotifier =
+      ValueNotifier<Map<String, int>>({});
+
+  void _startRealtimeCounting() {
+    // Update counts immediately
+    _updateCounts();
+
+    // Start periodic updates
+    _countTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
+      _updateCounts();
+    });
+  }
+
+  void _updateCounts() {
+    Map<String, int> objectCounts = {};
+
+    for (var detection in detectedObjects) {
+      final label = detection.label;
+      objectCounts[label] = (objectCounts[label] ?? 0) + 1;
+    }
+
+    _objectCountNotifier.value = objectCounts;
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _countTimer?.cancel();
     _controller?.dispose();
+    overlayEntry?.remove();
+    _objectCountNotifier.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Live Object Detection'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.switch_camera),
-            onPressed: _toggleCamera,
-          ),
-          IconButton(
-            icon: Icon(isFlashOn ? Icons.flash_on : Icons.flash_off),
-            onPressed: _toggleFlash,
-          ),
-          IconButton(
-            icon: Icon(Icons.calculate),
-            onPressed: _countObjects,
-          ),
-        ],
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue, Colors.indigo],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: Text(
+          'Live Object Detection',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.3),
+                offset: Offset(1, 1),
+                blurRadius: 3,
+              ),
+            ],
           ),
         ),
+        actions: [
+          _buildActionButton(Icons.switch_camera, _toggleCamera),
+          _buildActionButton(
+              isFlashOn ? Icons.flash_on : Icons.flash_off, _toggleFlash),
+          _buildActionButton(Icons.calculate, _countObjects),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('lib/image/bg.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.2),
-              BlendMode.darken,
-            ),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [primaryColor, secondaryColor],
           ),
         ),
-        child: Column(
-          children: [
-            FutureBuilder<void>(
-              future: _initializeControllerFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return Align(
-                    alignment: Alignment.center,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Stack(
-                        children: [
-                          Transform(
-                            alignment: Alignment.center,
-                            transform: isFrontCamera
-                                ? Matrix4.rotationY(
-                                    3.14159) // Membalikkan tampilan horizontal (flip kanan)
-                                : Matrix4
-                                    .identity(), // Tidak ada transformasi untuk kamera belakang
-                            child: CameraPreview(_controller!),
-                          ),
-                          CustomPaint(
-                            painter: DetectionPainter(detectedObjects),
-                          ),
-                        ],
-                      ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildCameraPreview(),
+              _buildZoomControls(),
+              Expanded(
+                child: _buildDetectionsList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, VoidCallback onPressed) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.white),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: AspectRatio(
+          aspectRatio: 3 / 4, // Adjusted to match screenshot
+          child: FutureBuilder<void>(
+            future: _initializeControllerFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Transform(
+                      alignment: Alignment.center,
+                      transform: isFrontCamera
+                          ? Matrix4.rotationY(3.14159)
+                          : Matrix4.identity(),
+                      child: CameraPreview(_controller!),
                     ),
-                  );
-                }
-                return Container(
-                  height: MediaQuery.of(context).size.height * 0.4,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.blueAccent,
-                      strokeWidth: 5,
+                    CustomPaint(
+                      painter: DetectionPainter(detectedObjects),
                     ),
-                  ),
+                  ],
                 );
-              },
+              }
+              return Container(
+                color: Colors.black,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildZoomControls() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      margin: EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: Icon(Icons.remove_circle_outline,
+                color: Colors.white, size: 28),
+            onPressed: _zoomOut,
+          ),
+          SizedBox(width: 8),
+          Text(
+            '${zoomLevel.toStringAsFixed(1)}x',
+            style: TextStyle(
+              fontSize: 20,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
             ),
-            Row(
+          ),
+          SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.add_circle_outline, color: Colors.white, size: 28),
+            onPressed: _zoomIn,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetectionsList() {
+    if (detectedObjects.isEmpty) {
+      return Expanded(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [primaryColor.withOpacity(0.8), secondaryColor],
+            ),
+          ),
+          child: Center(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: Icon(Icons.zoom_out),
-                  onPressed: _zoomOut,
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 64,
+                  color: Colors.white.withOpacity(0.7),
                 ),
+                SizedBox(height: 16),
                 Text(
-                  'Zoom: ${zoomLevel.toStringAsFixed(1)}x',
+                  'No objects detected',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 22,
                     color: Colors.white,
+                    fontWeight: FontWeight.w500,
                   ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.zoom_in),
-                  onPressed: _zoomIn,
                 ),
               ],
             ),
-            Expanded(
-              child: detectedObjects.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No objects detected',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: detectedObjects.length,
-                      itemBuilder: (context, index) {
-                        final detection = detectedObjects[index];
-                        return Card(
-                          color: Colors.white.withOpacity(0.9),
-                          margin: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          elevation: 5,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.blue,
-                              child: Text(
-                                detection.label.substring(0, 1).toUpperCase(),
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            title: Text(
-                              '${detection.label} (${(detection.confidence * 100).toStringAsFixed(1)}%)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Detected at: ${detection.timestamp}'),
-                                Text(
-                                  'Location: (${detection.box[0]}, ${detection.box[1]})',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                            trailing: Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                            ),
-                          ),
-                        );
-                      },
+          ),
+        ),
+      );
+    }
+
+    return Expanded(
+      child: Container(
+        margin: EdgeInsets.only(top: 8),
+        child: ListView.builder(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          itemCount: detectedObjects.length,
+          itemBuilder: (context, index) {
+            final detection = detectedObjects[index];
+            return Container(
+              margin: EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: ListTile(
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  width: 45,
+                  height: 45,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primaryColor, secondaryColor],
                     ),
-            ),
-          ],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      detection.label.substring(0, 1).toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text(
+                  detection.label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Confidence: ${(detection.confidence * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: secondaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

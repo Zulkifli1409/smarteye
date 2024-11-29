@@ -8,136 +8,229 @@ import 'package:smarteye/settings_page.dart';
 class QuickAccessButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Live Camera Button Row
-        SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: _buildButton(
-              context,
-              Icons.camera_alt,
-              'Live Camera',
-              Colors.blue,
-              LiveCameraPage(selectedObjects: []),
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      child: Column(
+        children: [
+          _buildButton(
+            context,
+            Icons.camera_alt,
+            'Live Camera',
+            'Mulai deteksi objek secara real-time',
+            LinearGradient(
+              colors: [Colors.blue[400]!, Colors.blue[600]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            LiveCameraPage(selectedObjects: []),
           ),
-        ),
-        SizedBox(height: 16.0),
-
-        // Video Button Row
-        SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: _buildButtonWithFilePicker(context, Icons.video_camera_back,
-                'Video', Colors.green, 'video'),
+          SizedBox(height: 12),
+          _buildButtonWithFilePicker(
+            context,
+            Icons.video_camera_back,
+            'Video Detection',
+            'Deteksi objek dari file video',
+            LinearGradient(
+              colors: [Colors.green[400]!, Colors.green[600]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            'video',
           ),
-        ),
-        SizedBox(height: 16.0),
-
-        // Image Button Row
-        SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: _buildButtonWithFilePicker(
-                context, Icons.image, 'Gambar', Colors.orange, 'image'),
+          SizedBox(height: 12),
+          _buildButtonWithFilePicker(
+            context,
+            Icons.image,
+            'Image Detection',
+            'Deteksi objek dari file gambar',
+            LinearGradient(
+              colors: [Colors.orange[400]!, Colors.orange[600]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            'image',
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildButton(BuildContext context, IconData icon, String label,
-      Color color, Widget targetPage) {
-    return ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
-        ),
-        elevation: 5,
-      ),
-      onPressed: () async {
-        List<String> selectedObjects = await _getSelectedObjects(context);
-        if (selectedObjects.isEmpty) {
-          selectedObjects = await _getAllObjects();
-        }
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                LiveCameraPage(selectedObjects: selectedObjects),
+      String description, Gradient gradient, Widget targetPage) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: Offset(0, 5),
           ),
-        );
-      },
-      icon: Icon(icon, color: Colors.white, size: 24),
-      label: Text(
-        label,
-        style: TextStyle(
-            color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            List<String> selectedObjects = await _getSelectedObjects(context);
+            if (selectedObjects.isEmpty) {
+              selectedObjects = await _getAllObjects();
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    LiveCameraPage(selectedObjects: selectedObjects),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(15),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 28),
+                ),
+                SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: Colors.white70),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildButtonWithFilePicker(BuildContext context, IconData icon,
-      String label, Color color, String fileType) {
-    return ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
-        ),
-        elevation: 5,
+      String label, String description, Gradient gradient, String fileType) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
-      onPressed: () async {
-        try {
-          FilePickerResult? result = await FilePicker.platform.pickFiles(
-            type: fileType == 'video' ? FileType.video : FileType.image,
-          );
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            try {
+              FilePickerResult? result = await FilePicker.platform.pickFiles(
+                type: fileType == 'video' ? FileType.video : FileType.image,
+              );
 
-          if (result != null && result.files.isNotEmpty) {
-            String filePath = result.files.single.path ?? '';
-            List<String> selectedObjects = await _getSelectedObjects(context);
+              if (result != null && result.files.isNotEmpty) {
+                String filePath = result.files.single.path ?? '';
+                List<String> selectedObjects =
+                    await _getSelectedObjects(context);
 
-            if (selectedObjects.isEmpty) {
-              selectedObjects = await _getAllObjects();
+                if (selectedObjects.isEmpty) {
+                  selectedObjects = await _getAllObjects();
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => fileType == 'video'
+                        ? VideoPage(
+                            filePath: filePath,
+                            selectedObjects: selectedObjects)
+                        : ImagePage(
+                            filePath: filePath,
+                            selectedObjects: selectedObjects),
+                  ),
+                );
+              }
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error selecting file: $e')),
+              );
             }
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => fileType == 'video'
-                    ? VideoPage(
-                        filePath: filePath, selectedObjects: selectedObjects)
-                    : ImagePage(
-                        filePath: filePath, selectedObjects: selectedObjects),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('File selection was canceled')),
-            );
-          }
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error selecting file: $e')),
-          );
-        }
-      },
-      icon: Icon(icon, color: Colors.white, size: 24),
-      label: Text(
-        label,
-        style: TextStyle(
-            color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          },
+          borderRadius: BorderRadius.circular(15),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 28),
+                ),
+                SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: Colors.white70),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
+  // Rest of the code remains the same
   Future<List<String>> _getSelectedObjects(BuildContext context) async {
     final selectedObjects = await Navigator.push(
       context,

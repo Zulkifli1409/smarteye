@@ -125,27 +125,32 @@ class _SettingsPageState extends State<SettingsPage> {
         title: Text(
           'Select Detection Objects',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
             color: Colors.white,
             shadows: [
               Shadow(
-                blurRadius: 10.0,
-                color: Colors.black45,
-                offset: Offset(0, 3),
+                blurRadius: 8.0,
+                color: Colors.black.withOpacity(0.3),
+                offset: Offset(0, 2),
               ),
             ],
           ),
         ),
         centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF4A90E2).withOpacity(0.8),
-              Color(0xFF50C878).withOpacity(0.8),
+              Color(0xFF1A237E),
+              Color(0xFF0288D1),
             ],
           ),
         ),
@@ -153,79 +158,116 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search objects...',
-                    prefixIcon: Icon(Icons.search, color: Colors.white70),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.2),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: BorderSide.none,
-                    ),
-                    hintStyle: TextStyle(color: Colors.white70),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  style: TextStyle(color: Colors.white),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search objects...',
+                      prefixIcon: Icon(Icons.search, color: Colors.white70),
+                      border: InputBorder.none,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      hintStyle: TextStyle(color: Colors.white70),
+                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                 ),
               ),
               Expanded(
                 child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 16),
+                  margin: EdgeInsets.symmetric(horizontal: 20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: ListView.builder(
-                    itemCount: _filteredObjects.length,
-                    itemBuilder: (context, index) {
-                      final object = _filteredObjects[index];
-                      return CheckboxListTile(
-                        title: Text(
-                          object,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(25),
+                    child: ListView.builder(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _filteredObjects.length,
+                      itemBuilder: (context, index) {
+                        final object = _filteredObjects[index];
+                        return Container(
+                          margin:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: selectedObjects.contains(object)
+                                ? Colors.white.withOpacity(0.2)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(15),
                           ),
-                        ),
-                        activeColor: Colors.greenAccent,
-                        checkColor: Colors.black,
-                        value: selectedObjects.contains(object),
-                        onChanged: (bool? value) {
-                          setState(() {
-                            if (value == true) {
-                              selectedObjects.add(object);
-                            } else {
-                              selectedObjects.remove(object);
-                            }
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.trailing,
-                      );
-                    },
+                          child: CheckboxListTile(
+                            title: Text(
+                              object,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: selectedObjects.contains(object)
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            activeColor: Color(0xFF0288D1),
+                            checkColor: Colors.white,
+                            value: selectedObjects.contains(object),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  selectedObjects.add(object);
+                                } else {
+                                  selectedObjects.remove(object);
+                                }
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.trailing,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
+              Container(
+                padding: const EdgeInsets.all(20),
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context, selectedObjects);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.3),
-                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white,
+                    foregroundColor: Color(0xFF1A237E),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    padding: EdgeInsets.symmetric(vertical: 15, horizontal: 50),
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    minimumSize: Size(double.infinity, 0),
+                    elevation: 4,
                   ),
                   child: Text(
                     'Save Selection',
                     style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
                     ),
                   ),
                 ),

@@ -78,6 +78,10 @@ flutter:
     - lib/image/image1.png
     - lib/image/image2.jpg
     - lib/image/image3.png
+    - lib/image/fahri.jpg
+    - lib/image/ata.jpg
+    - lib/image/sid.jpg
+    - lib/image/zoel.jpg
     - lib/image/bg.jpg
     - backend/darknet/data/coco.names
   #   - images/a_dot_ham.jpeg

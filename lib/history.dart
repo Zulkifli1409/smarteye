@@ -18,29 +18,78 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('History Deteksi'),
-        backgroundColor: Colors.black,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: Text(
+          'History Deteksi',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                blurRadius: 8.0,
+                color: Colors.black.withOpacity(0.3),
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Container(
         decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('lib/image/bg.jpg'),
-            fit: BoxFit.cover,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A237E), Color(0xFF0288D1)],
           ),
         ),
         child: FutureBuilder<List<DetectedObject>>(
           future: dbHelper.getAllObjects(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return Center(
-                child: Text(
-                  'Belum ada data tersimpan.',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'Error: ${snapshot.error}',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.history,
+                        color: Colors.white.withOpacity(0.7), size: 64),
+                    SizedBox(height: 16),
+                    Text(
+                      'Belum ada data tersimpan',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               );
             }
@@ -50,53 +99,84 @@ class HistoryPage extends StatelessWidget {
               ..sort((a, b) => b.compareTo(a));
 
             return ListView.builder(
+              padding: EdgeInsets.only(top: 100, bottom: 20),
               itemCount: dates.length,
               itemBuilder: (context, dateIndex) {
                 final date = dates[dateIndex];
-                final objectsForDate = groupedObjects[date]!;
+                final objectsForDate = groupedObjects[date]!
+                  ..sort((a, b) =>
+                      DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
 
-                objectsForDate.sort((a, b) =>
-                    DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
-
-                return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  color: Colors.black54,
-                  child: ExpansionTile(
-                    title: Text(
-                      DateFormat('dd MMMM yyyy').format(DateTime.parse(date)),
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    children: objectsForDate.map((object) {
-                      return Card(
-                        margin:
-                            EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                        color: Colors.black38,
-                        child: ListTile(
-                          title: Text(
-                            object.label,
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Waktu: ${DateFormat('HH:mm:ss').format(DateTime.parse(object.date))}',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                              Text(
-                                'Confidence: ${(object.confidence * 100).toStringAsFixed(2)}%',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                              Text(
-                                'Kategori: ${object.category.isNotEmpty ? object.category : 'Tidak Terkategori'}',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ],
+                    color: Colors.white.withOpacity(0.15),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                        colorScheme: ColorScheme.dark(),
+                      ),
+                      child: ExpansionTile(
+                        tilePadding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        title: Text(
+                          DateFormat('dd MMMM yyyy')
+                              .format(DateTime.parse(date)),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      );
-                    }).toList(),
+                        children: objectsForDate.map((object) {
+                          return Container(
+                            margin: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: ListTile(
+                              contentPadding: EdgeInsets.all(16),
+                              title: Text(
+                                object.label,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(height: 8),
+                                  _buildInfoRow(
+                                    Icons.access_time,
+                                    'Waktu: ${DateFormat('HH:mm:ss').format(DateTime.parse(object.date))}',
+                                  ),
+                                  SizedBox(height: 4),
+                                  _buildInfoRow(
+                                    Icons.trending_up,
+                                    'Confidence: ${(object.confidence * 100).toStringAsFixed(2)}%',
+                                  ),
+                                  SizedBox(height: 4),
+                                  _buildInfoRow(
+                                    Icons.category,
+                                    'Kategori: ${object.category.isNotEmpty ? object.category : 'Tidak Terkategori'}',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -104,6 +184,21 @@ class HistoryPage extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.white70),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      ],
     );
   }
 }

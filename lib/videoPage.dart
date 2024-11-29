@@ -34,9 +34,7 @@ class _VideoPageState extends State<VideoPage> {
       });
   }
 
-  void _updateBoundingBoxes() {
-    setState(() {});
-  }
+  void _updateBoundingBoxes() => setState(() {});
 
   Future<void> _detectObjects() async {
     setState(() {
@@ -46,9 +44,7 @@ class _VideoPageState extends State<VideoPage> {
 
     try {
       final file = File(widget.filePath);
-      if (!await file.exists()) {
-        throw Exception("Video file does not exist");
-      }
+      if (!await file.exists()) throw Exception("Video file does not exist");
 
       final request = http.MultipartRequest(
         'POST',
@@ -58,12 +54,12 @@ class _VideoPageState extends State<VideoPage> {
 
       final response = await request.send();
       if (response.statusCode == 200) {
-        final jsonResponse = json.decode(await response.stream.bytesToString());
-        final results = jsonResponse['detections'] as Map<String, dynamic>;
+        final results =
+            json.decode(await response.stream.bytesToString())['detections'];
 
         setState(() {
           detections = Map.fromEntries(
-            results.entries.map((e) => MapEntry(
+            (results as Map<String, dynamic>).entries.map((e) => MapEntry(
                   double.parse(e.key),
                   List<Map<String, dynamic>>.from(e.value),
                 )),
@@ -71,21 +67,17 @@ class _VideoPageState extends State<VideoPage> {
           isProcessing = false;
         });
 
-        // Save detections to database
         final dbHelper = DBHelper();
-        for (var timestamp in detections.keys) {
-          final detectionsAtTime = detections[timestamp]!;
-          for (var detection in detectionsAtTime) {
-            if (widget.selectedObjects.contains(detection['label'])) {
-              final detectedObject = DetectedObject(
-                label: detection['label'],
-                confidence: detection['confidence'],
-                boundingBox: json.encode(detection['bounding_box']),
-                category: "Video", // Pastikan kategori diisi dengan benar
-                date: DateTime.now().toIso8601String(),
-              );
-              await dbHelper.insertObject(detectedObject);
-            }
+        for (var entry in detections.entries) {
+          for (var detection in entry.value
+              .where((d) => widget.selectedObjects.contains(d['label']))) {
+            await dbHelper.insertObject(DetectedObject(
+              label: detection['label'],
+              confidence: detection['confidence'],
+              boundingBox: json.encode(detection['bounding_box']),
+              category: "Video",
+              date: DateTime.now().toIso8601String(),
+            ));
           }
         }
       } else {
@@ -96,50 +88,15 @@ class _VideoPageState extends State<VideoPage> {
         errorMessage = e.toString();
         isProcessing = false;
       });
-      print("Error during video detection: $e");
     }
   }
-
 
   List<Map<String, dynamic>> _getCurrentDetections() {
-    if (detections.isEmpty || !_controller.value.isInitialized) return [];
-
+    if (!_controller.value.isInitialized || detections.isEmpty) return [];
     final currentTime = _controller.value.position.inMilliseconds / 1000.0;
-    final closestTimestamp = detections.keys.reduce(
-        (a, b) => (a - currentTime).abs() < (b - currentTime).abs() ? a : b);
-
-    return detections[closestTimestamp] ?? [];
-  }
-
-  List<Map<String, dynamic>> _filterSelectedObjects(
-      List<Map<String, dynamic>> detections) {
-    return detections.where((detection) {
-      final label = detection['label'];
-      return widget.selectedObjects.contains(label);
-    }).toList();
-  }
-
-  Map<String, int> _getCurrentObjectCounts() {
-    if (detections.isEmpty || !_controller.value.isInitialized) return {};
-
-    final currentTime = _controller.value.position.inMilliseconds / 1000.0;
-    final closestTimestamp = detections.keys.reduce(
-        (a, b) => (a - currentTime).abs() < (b - currentTime).abs() ? a : b);
-
-    final currentDetections = detections[closestTimestamp] ?? [];
-    final objectCounts = <String, int>{};
-    for (final detection in currentDetections) {
-      final label = detection['label'];
-      objectCounts[label] = (objectCounts[label] ?? 0) + 1;
-    }
-    return objectCounts;
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_updateBoundingBoxes);
-    _controller.dispose();
-    super.dispose();
+    return detections[detections.keys.reduce((a, b) =>
+            (a - currentTime).abs() < (b - currentTime).abs() ? a : b)] ??
+        [];
   }
 
   @override
@@ -150,48 +107,42 @@ class _VideoPageState extends State<VideoPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Video Detection',
           style: TextStyle(
-            color: Colors.white,
+            fontSize: 24,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
             shadows: [
               Shadow(
-                blurRadius: 10.0,
-                color: Colors.black45,
-                offset: Offset(2.0, 2.0),
-              )
+                offset: Offset(0, 2),
+                blurRadius: 8,
+                color: Colors.black.withOpacity(0.3),
+              ),
             ],
           ),
         ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: Icon(
-              Icons.visibility,
-              color: showObjectCounts ? Colors.greenAccent : Colors.white,
+              Icons.analytics_outlined,
+              color: showObjectCounts ? Color(0xFF0288D1) : Colors.white,
             ),
-            onPressed: () {
-              setState(() {
-                showObjectCounts = !showObjectCounts;
-              });
-            },
+            onPressed: () =>
+                setState(() => showObjectCounts = !showObjectCounts),
           ),
         ],
-        centerTitle: true,
       ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade900,
-              Colors.blue.shade600,
-              Colors.blue.shade300,
-            ],
+            colors: [Color(0xFF1A237E), Color(0xFF0288D1)],
           ),
         ),
         child: SafeArea(
@@ -202,267 +153,343 @@ class _VideoPageState extends State<VideoPage> {
                 child: Container(
                   margin: EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black26,
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 15,
-                        offset: Offset(0, 10),
-                      )
+                        offset: Offset(0, 8),
+                      ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(25),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Center(
-                          child: _controller.value.isInitialized
-                              ? AspectRatio(
-                                  aspectRatio: _controller.value.aspectRatio,
-                                  child: VideoPlayer(_controller),
-                                )
-                              : CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
-                                ),
-                        ),
+                        _buildVideoPlayer(),
                         if (_controller.value.isInitialized)
-                          Positioned.fill(
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final currentDetections =
-                                    _getCurrentDetections();
-                                final videoWidth = _controller.value.size.width;
-                                final videoHeight =
-                                    _controller.value.size.height;
-
-                                final filteredDetections =
-                                    _filterSelectedObjects(currentDetections);
-
-                                return Stack(
-                                  children: filteredDetections.map((detection) {
-                                    final box = detection['bounding_box'];
-                                    final label = detection['label'];
-                                    final confidence = detection['confidence'];
-
-                                    final left = (box[0] / videoWidth) *
-                                        constraints.maxWidth;
-                                    final top = (box[1] / videoHeight) *
-                                        constraints.maxHeight;
-                                    final width = (box[2] / videoWidth) *
-                                        constraints.maxWidth;
-                                    final height = (box[3] / videoHeight) *
-                                        constraints.maxHeight;
-
-                                    return Positioned(
-                                      left: left,
-                                      top: top,
-                                      width: width,
-                                      height: height,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: Colors.greenAccent,
-                                              width: 3),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Align(
-                                          alignment: Alignment.topLeft,
-                                          child: Container(
-                                            color: Colors.greenAccent
-                                                .withOpacity(0.7),
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 4),
-                                            child: Text(
-                                              '$label ${(confidence * 100).toStringAsFixed(1)}%',
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                );
-                              },
-                            ),
-                          ),
+                          _buildDetectionOverlay(),
                       ],
                     ),
                   ),
                 ),
               ),
-              VideoControls(controller: _controller),
+              _buildVideoControls(),
               Expanded(
                 flex: 2,
                 child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: EdgeInsets.symmetric(horizontal: 16),
                   child: isProcessing
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                              SizedBox(height: 10),
-                              Text(
-                                'Processing video...',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
-                        )
+                      ? _buildLoadingIndicator()
                       : errorMessage != null
-                          ? Center(
-                              child: Text(
-                                errorMessage!,
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            )
-                          : ValueListenableBuilder(
-                              valueListenable: _controller,
-                              builder:
-                                  (context, VideoPlayerValue value, child) {
-                                final currentDetections =
-                                    _getCurrentDetections();
-                                final filteredDetections =
-                                    _filterSelectedObjects(currentDetections);
-                                return ListView.builder(
-                                  itemCount: filteredDetections.length,
-                                  itemBuilder: (context, index) {
-                                    final detection = filteredDetections[index];
-                                    return Container(
-                                      margin: EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.white.withOpacity(0.3),
-                                            Colors.white.withOpacity(0.1),
-                                          ],
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(15),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black12,
-                                            blurRadius: 10,
-                                            offset: Offset(0, 5),
-                                          )
-                                        ],
-                                      ),
-                                      child: ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor:
-                                              Colors.white.withOpacity(0.3),
-                                          child: Text(
-                                            detection['label'][0].toUpperCase(),
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        title: Text(
-                                          detection['label'],
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Confidence: ${(detection['confidence'] * 100).toStringAsFixed(1)}%',
-                                              style: TextStyle(
-                                                color: Colors.white70,
-                                              ),
-                                            ),
-                                            Text(
-                                              'Time: ${value.position.inSeconds}s',
-                                              style: TextStyle(
-                                                color: Colors.white70,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
+                          ? _buildErrorMessage()
+                          : _buildDetectionsList(),
                 ),
               ),
-              if (showObjectCounts)
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      child: Text(
-                        'Object Count: ${_getCurrentObjectCounts().values.fold(0, (sum, count) => sum + count)}',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              if (showObjectCounts) _buildObjectCounter(),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class VideoControls extends StatelessWidget {
-  final VideoPlayerController controller;
-
-  const VideoControls({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: Icon(Icons.play_arrow),
-          onPressed: () {
-            if (controller.value.isPlaying) {
-              controller.pause();
-            } else {
-              controller.play();
-            }
-          },
-        ),
-        IconButton(
-          icon: Icon(Icons.stop),
-          onPressed: () {
-            controller.seekTo(Duration.zero);
-            controller.pause();
-          },
-        ),
-      ],
+  Widget _buildVideoPlayer() {
+    return Center(
+      child: _controller.value.isInitialized
+          ? AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: VideoPlayer(_controller),
+            )
+          : CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
     );
   }
+
+  Widget _buildDetectionOverlay() {
+    return ValueListenableBuilder(
+      valueListenable: _controller,
+      builder: (context, value, child) {
+        final currentDetections = _getCurrentDetections()
+            .where(
+              (d) => widget.selectedObjects.contains(d['label']),
+            )
+            .toList();
+
+        return CustomPaint(
+          painter: DetectionPainter(
+            detections: currentDetections,
+            videoSize: _controller.value.size,
+          ),
+          size: Size.infinite,
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoControls() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ValueListenableBuilder(
+            valueListenable: _controller,
+            builder: (context, value, child) {
+              return IconButton(
+                icon: Icon(
+                  value.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                onPressed: () {
+                  value.isPlaying ? _controller.pause() : _controller.play();
+                },
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.replay, color: Colors.white, size: 32),
+            onPressed: () {
+              _controller.seekTo(Duration.zero);
+              _controller.pause();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Processing video...',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Center(
+      child: Text(
+        errorMessage!,
+        style: TextStyle(color: Colors.redAccent, fontSize: 16),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildDetectionsList() {
+    return ValueListenableBuilder(
+      valueListenable: _controller,
+      builder: (context, value, child) {
+        final currentDetections = _getCurrentDetections()
+            .where((d) => widget.selectedObjects.contains(d['label']))
+            .toList();
+
+        return ListView.builder(
+          itemCount: currentDetections.length,
+          padding: EdgeInsets.symmetric(vertical: 8),
+          itemBuilder: (context, index) {
+            final detection = currentDetections[index];
+            return Container(
+              margin: EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.15),
+                    Colors.white.withOpacity(0.05),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: ListTile(
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                leading: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF1A237E).withOpacity(0.3),
+                  ),
+                  child: Center(
+                    child: Text(
+                      detection['label'][0].toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                title: Row(
+                  children: [
+                    Text(
+                      detection['label'],
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${(detection['confidence'] * 100).toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  'Time: ${value.position.inSeconds}s',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildObjectCounter() {
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: ValueListenableBuilder(
+        valueListenable: _controller,
+        builder: (context, value, child) {
+          final counts = Map<String, int>.fromIterable(
+            _getCurrentDetections()
+                .where((d) => widget.selectedObjects.contains(d['label'])),
+            key: (d) => d['label'] as String,
+            value: (d) => 1,
+          );
+
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.analytics, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Objects Detected: ${counts.length}',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_updateBoundingBoxes);
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
+class DetectionPainter extends CustomPainter {
+  final List<Map<String, dynamic>> detections;
+  final Size videoSize;
+
+  DetectionPainter({required this.detections, required this.videoSize});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Color(0xFF1A237E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final labelPaint = Paint()
+      ..color = Color(0xFF1A237E).withOpacity(0.7)
+      ..style = PaintingStyle.fill;
+
+    for (var detection in detections) {
+      final box = detection['bounding_box'];
+      final scaleX = size.width / videoSize.width;
+      final scaleY = size.height / videoSize.height;
+
+      final rect = Rect.fromLTWH(
+        box[0] * scaleX,
+        box[1] * scaleY,
+        box[2] * scaleX,
+        box[3] * scaleY,
+      );
+
+      canvas.drawRect(rect, paint);
+
+      final label = detection['label'];
+      final confidence = detection['confidence'];
+      final labelText = '$label ${(confidence * 100).toStringAsFixed(1)}%';
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: labelText,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final labelRect = Rect.fromLTWH(
+        rect.left,
+        rect.top - 24,
+        textPainter.width + 8,
+        24,
+      );
+
+      canvas.drawRect(labelRect, labelPaint);
+      textPainter.paint(canvas, Offset(rect.left + 4, rect.top - 24));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

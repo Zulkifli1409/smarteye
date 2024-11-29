@@ -22,13 +22,17 @@ class _ImagePageState extends State<ImagePage> {
   bool isImageLoaded = false;
   String? errorMessage;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadOriginalImage();
+    _detectObjects();
+  }
+
   Future<void> _detectObjects() async {
     try {
       final file = File(widget.filePath);
-      if (!await file.exists()) {
-        print("File does not exist at path: ${widget.filePath}");
-        return;
-      }
+      if (!await file.exists()) return;
 
       final request = http.MultipartRequest(
         'POST',
@@ -38,68 +42,44 @@ class _ImagePageState extends State<ImagePage> {
 
       final response = await request.send();
       if (response.statusCode == 200) {
-        final jsonResponse = await response.stream.bytesToString();
-        final data = json.decode(jsonResponse) as Map<String, dynamic>;
+        final data = json.decode(await response.stream.bytesToString());
         final objects =
             List<Map<String, dynamic>>.from(data['detected_objects'] ?? []);
 
         setState(() {
           detectedObjects = objects.where((object) {
-            final label = object['label'] ?? '';
-            return widget.selectedObjects.contains(label);
+            return widget.selectedObjects.contains(object['label'] ?? '');
           }).toList();
         });
 
-        // Simpan hasil deteksi ke database
         final dbHelper = DBHelper();
         for (var object in detectedObjects) {
-          final label = object['label'] ?? 'Unknown';
-          final confidence = (object['confidence'] as num?)?.toDouble() ?? 0.0;
-          final boundingBox = json.encode(object['box'] ?? []);
-          final date = DateTime.now().toIso8601String();
-
-          final detectedObject = DetectedObject(
-            label: label,
-            confidence: confidence,
-            boundingBox: boundingBox,
-            category: "Image", // Pastikan kategori diisi dengan benar
-            date: date,
-          );
-
-          await dbHelper.insertObject(detectedObject);
+          await dbHelper.insertObject(DetectedObject(
+            label: object['label'] ?? 'Unknown',
+            confidence: (object['confidence'] as num?)?.toDouble() ?? 0.0,
+            boundingBox: json.encode(object['box'] ?? []),
+            category: "Image",
+            date: DateTime.now().toIso8601String(),
+          ));
         }
-      } else {
-        print("Error detecting objects: ${response.statusCode}");
       }
     } catch (e) {
       print("Error during object detection: $e");
     }
   }
 
-
-
   Future<void> _loadOriginalImage() async {
     try {
-      final data = await File(widget.filePath).readAsBytes();
-      final image = await decodeImageFromList(data);
+      final image =
+          await decodeImageFromList(await File(widget.filePath).readAsBytes());
       setState(() {
         originalImage = image;
         isImageLoaded = true;
         errorMessage = null;
       });
     } catch (e) {
-      setState(() {
-        errorMessage = "Error loading image: $e";
-      });
-      print("Error loading image: $e");
+      setState(() => errorMessage = "Error loading image: $e");
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOriginalImage();
-    _detectObjects();
   }
 
   @override
@@ -110,20 +90,21 @@ class _ImagePageState extends State<ImagePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           'Object Detection',
           style: TextStyle(
-            color: Colors.white,
+            fontSize: 24,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
             shadows: [
               Shadow(
-                blurRadius: 10.0,
-                color: Colors.black45,
-                offset: Offset(2.0, 2.0),
-              )
+                blurRadius: 8,
+                color: Colors.black38,
+                offset: Offset(0, 2),
+              ),
             ],
           ),
         ),
@@ -134,11 +115,7 @@ class _ImagePageState extends State<ImagePage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade900,
-              Colors.blue.shade600,
-              Colors.blue.shade300,
-            ],
+            colors: [Color(0xFF1A237E), Color(0xFF0288D1)],
           ),
         ),
         child: SafeArea(
@@ -149,33 +126,29 @@ class _ImagePageState extends State<ImagePage> {
                 child: Container(
                   margin: EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(25),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black26,
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 15,
-                        offset: Offset(0, 10),
+                        offset: Offset(0, 8),
                       )
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(25),
                     child: isImageLoaded
                         ? LayoutBuilder(
                             builder: (context, constraints) {
-                              final containerWidth = constraints.maxWidth;
-                              final containerHeight = constraints.maxHeight;
-
-                              final scaleX = containerWidth / originalImage.width;
-                              final scaleY = containerHeight / originalImage.height;
-
+                              final scaleX =
+                                  constraints.maxWidth / originalImage.width;
+                              final scaleY =
+                                  constraints.maxHeight / originalImage.height;
                               return Stack(
                                 fit: StackFit.expand,
                                 children: [
                                   Image.file(
                                     File(widget.filePath),
-                                    width: originalImage.width * scaleX,
-                                    height: originalImage.height * scaleY,
                                     fit: BoxFit.contain,
                                   ),
                                   if (detectedObjects.isNotEmpty)
@@ -196,26 +169,30 @@ class _ImagePageState extends State<ImagePage> {
                           )
                         : Center(
                             child: errorMessage != null
-                                ? Text(
-                                    errorMessage!,
-                                    style: TextStyle(color: Colors.white),
-                                  )
+                                ? Text(errorMessage!,
+                                    style: TextStyle(color: Colors.white))
                                 : CircularProgressIndicator(
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
-                                  ),
+                                        Colors.white)),
                           ),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                   "Detected Objects",
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 8,
+                        color: Colors.black26,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -229,42 +206,50 @@ class _ImagePageState extends State<ImagePage> {
                         ),
                       )
                     : ListView.builder(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
                         itemCount: detectedObjects.length,
                         itemBuilder: (context, index) {
                           final object = detectedObjects[index];
                           final label = object['label'] ?? 'Unknown';
                           final confidence = object['confidence'] ?? 0.0;
-                          final boundingBox = object['box'] ?? {};
 
                           return Container(
-                            margin: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
+                            margin: EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  Colors.white.withOpacity(0.3),
-                                  Colors.white.withOpacity(0.1),
+                                  Colors.white.withOpacity(0.15),
+                                  Colors.white.withOpacity(0.05),
                                 ],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               ),
-                              borderRadius: BorderRadius.circular(15),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 10,
-                                  offset: Offset(0, 5),
-                                )
-                              ],
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.1),
+                                width: 1,
+                              ),
                             ),
                             child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.white.withOpacity(0.3),
-                                child: Text(
-                                  label.isNotEmpty ? label[0].toUpperCase() : '?',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 8),
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF1A237E).withOpacity(0.3),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    label.isNotEmpty
+                                        ? label[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -274,24 +259,28 @@ class _ImagePageState extends State<ImagePage> {
                                     label,
                                     style: TextStyle(
                                       color: Colors.white,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Text(
-                                    '(${(confidence * 100).toStringAsFixed(2)}%)',
-                                    style: TextStyle(
-                                      color: Colors.greenAccent,
-                                      fontWeight: FontWeight.w500,
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${(confidence * 100).toStringAsFixed(1)}%',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
-                              ),
-                              subtitle: Text(
-                                'Bounding Box: $boundingBox',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                ),
                               ),
                             ),
                           );
@@ -299,39 +288,42 @@ class _ImagePageState extends State<ImagePage> {
                       ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16),
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Map<String, int> objectCounts = {};
-
-                    for (var object in detectedObjects) {
-                      final label = object['label'] ?? 'Unknown';
-                      objectCounts[label] = (objectCounts[label] ?? 0) + 1;
+                    Map<String, int> counts = {};
+                    for (var obj in detectedObjects) {
+                      final label = obj['label'] ?? 'Unknown';
+                      counts[label] = (counts[label] ?? 0) + 1;
                     }
-
-                    String countMessage = objectCounts.entries
-                        .map((entry) => '${entry.value} ${entry.key}')
-                        .join(', ');
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Total objects detected: $countMessage'),
-                        backgroundColor: Colors.blue.shade700,
+                        content: Text(
+                          'Detected: ${counts.entries.map((e) => '${e.value} ${e.key}').join(', ')}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        backgroundColor: Color(0xFF1A237E),
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(15),
                         ),
+                        margin: EdgeInsets.all(16),
                       ),
                     );
                   },
-                  icon: Icon(Icons.calculate_outlined),
-                  label: Text('Count Objects'),
+                  icon: Icon(Icons.analytics_outlined),
+                  label: Text(
+                    'Count Objects',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.3),
+                    backgroundColor: Colors.white.withOpacity(0.15),
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
                     ),
                   ),
                 ),
@@ -354,35 +346,53 @@ class BoundingBoxPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 3.0
+    final boxPaint = Paint()
+      ..color = Color(0xFF1A237E)
+      ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
+
+    final labelPaint = Paint()
+      ..color = Color(0xFF1A237E).withOpacity(0.7)
+      ..style = PaintingStyle.fill;
 
     for (var object in objects) {
       final box = object['box'];
       if (box != null) {
-        final left = (box[0] * scaleX).clamp(0.0, imageSize.width);
-        final top = (box[1] * scaleY).clamp(0.0, imageSize.height);
-        final right = (box[2] * scaleX).clamp(left, imageSize.width);
-        final bottom = (box[3] * scaleY).clamp(top, imageSize.height);
+        final left = (box[0] * scaleX).clamp(0.0, size.width);
+        final top = (box[1] * scaleY).clamp(0.0, size.height);
+        final right = (box[2] * scaleX).clamp(left, size.width);
+        final bottom = (box[3] * scaleY).clamp(top, size.height);
 
         final rect = Rect.fromLTRB(left, top, right, bottom);
-        canvas.drawRect(rect, paint);
+        canvas.drawRect(rect, boxPaint);
 
         final label = object['label'] ?? 'Unknown';
         final confidence = object['confidence'] ?? 0.0;
+        final labelText = '$label ${(confidence * 100).toStringAsFixed(1)}%';
 
         final textPainter = TextPainter(
           text: TextSpan(
-            text: '$label ${(confidence * 100).toStringAsFixed(2)}%',
-            style:
-                TextStyle(color: Colors.black, backgroundColor: Colors.white),
+            text: labelText,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              backgroundColor: Color(0xFF1A237E).withOpacity(0.7),
+            ),
           ),
           textDirection: TextDirection.ltr,
         );
+
         textPainter.layout();
-        textPainter.paint(canvas, Offset(left, top));
+        final labelRect = Rect.fromLTWH(
+          left,
+          top - 24,
+          textPainter.width + 8,
+          24,
+        );
+
+        canvas.drawRect(labelRect, labelPaint);
+        textPainter.paint(canvas, Offset(left + 4, top - 24));
       }
     }
   }
