@@ -53,9 +53,27 @@ class DBHelper {
     return results.map((map) => DetectedObject.fromMap(map)).toList();
   }
 
+  // Add method to delete all objects
+  Future<void> deleteAllObjects() async {
+    final db = await database;
+    await db.delete('objects');
+  }
+
+  // Add method to delete objects by date
+  Future<void> deleteObjectsByDate(String date) async {
+    final db = await database;
+    final dateStart = DateTime.parse(date);
+    final dateEnd = dateStart.add(Duration(days: 1));
+
+    await db.delete(
+      'objects',
+      where: 'date >= ? AND date < ?',
+      whereArgs: [dateStart.toIso8601String(), dateEnd.toIso8601String()],
+    );
+  }
+
   Future<void> closeDatabase() async {
     final db = await database;
     await db.close();
   }
 }
-

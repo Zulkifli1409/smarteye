@@ -3,8 +3,26 @@ import 'package:intl/intl.dart';
 import 'db_helper.dart';
 import 'detected_object.dart';
 
-class HistoryPage extends StatelessWidget {
+class HistoryPage extends StatefulWidget {
+  @override
+  _HistoryPageState createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends State<HistoryPage> {
   final DBHelper dbHelper = DBHelper();
+  Future<List<DetectedObject>>? _objectsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
+  }
+
+  void _refreshData() {
+    setState(() {
+      _objectsFuture = dbHelper.getAllObjects();
+    });
+  }
 
   Map<String, List<DetectedObject>> _groupByDate(List<DetectedObject> objects) {
     Map<String, List<DetectedObject>> grouped = {};
@@ -13,6 +31,50 @@ class HistoryPage extends StatelessWidget {
       grouped.putIfAbsent(date, () => []).add(obj);
     }
     return grouped;
+  }
+
+  Future<void> _showDeleteConfirmationDialog(BuildContext context,
+      {String? date}) {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white.withOpacity(0.9),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            date != null
+                ? 'Hapus History Tanggal Ini?'
+                : 'Hapus Semua History?',
+            style: TextStyle(color: Colors.black87),
+          ),
+          content: Text(
+            date != null
+                ? 'Semua data deteksi pada tanggal ${DateFormat('dd MMMM yyyy').format(DateTime.parse(date))} akan dihapus.'
+                : 'Semua data history deteksi akan dihapus permanen.',
+            style: TextStyle(color: Colors.black87),
+          ),
+          actions: [
+            TextButton(
+              child: Text('Batal', style: TextStyle(color: Colors.grey)),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text('Hapus', style: TextStyle(color: Colors.red)),
+              onPressed: () async {
+                if (date != null) {
+                  await dbHelper.deleteObjectsByDate(date);
+                } else {
+                  await dbHelper.deleteAllObjects();
+                }
+                Navigator.of(context).pop();
+                _refreshData(); // Refresh the data after deletion
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -27,16 +89,18 @@ class HistoryPage extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                blurRadius: 8.0,
-                color: Colors.black.withOpacity(0.3),
-                offset: Offset(0, 2),
-              ),
-            ],
+            color: Colors.white, // Added explicit white color
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: Colors.white),
+            onPressed: () => _showDeleteConfirmationDialog(context),
+            tooltip: 'Hapus Semua History',
+          ),
+        ],
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -47,7 +111,7 @@ class HistoryPage extends StatelessWidget {
           ),
         ),
         child: FutureBuilder<List<DetectedObject>>(
-          future: dbHelper.getAllObjects(),
+          future: _objectsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(
@@ -123,14 +187,28 @@ class HistoryPage extends StatelessWidget {
                       child: ExpansionTile(
                         tilePadding:
                             EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                        title: Text(
-                          DateFormat('dd MMMM yyyy')
-                              .format(DateTime.parse(date)),
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                DateFormat('dd MMMM yyyy')
+                                    .format(DateTime.parse(date)),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  color: Colors.white70, size: 20),
+                              onPressed: () => _showDeleteConfirmationDialog(
+                                  context,
+                                  date: date),
+                              tooltip: 'Hapus history tanggal ini',
+                            ),
+                          ],
                         ),
                         children: objectsForDate.map((object) {
                           return Container(
