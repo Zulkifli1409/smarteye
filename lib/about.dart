@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({Key? key}) : super(key: key);
@@ -16,11 +17,37 @@ class _AboutPageState extends State<AboutPage> {
   double _scrollOffset = 0;
 
   final List<TeamMember> _teamMembers = [
-    TeamMember('Zulkifli', 'Ketua', 'lib/image/zoel.jpg'),
-    TeamMember('Muhammad Alfata', 'Anggota', 'lib/image/ata.jpg'),
-    TeamMember('Muhammad Rasyid Wanandi', 'Anggota', 'lib/image/sid.jpg'),
-    TeamMember('Fachri Yumanda Putra', 'Anggota', 'lib/image/fahri.jpg'),
+    TeamMember(
+      'Zulkifli',
+      'Ketua',
+      'lib/image/zoel.jpg',
+      'https://linkedin.com/in/zulkifli1409',
+      'Flutter Developer',
+    ),
+    TeamMember(
+      'Muhammad Alfata',
+      'Anggota',
+      'lib/image/ata.jpg',
+      'https://linkedin.com/in/muhammadalfata',
+      'UI/UX Designer',
+    ),
+    TeamMember(
+      'Muhammad Rasyid Wanandi',
+      'Anggota',
+      'lib/image/sid.jpg',
+      'https://linkedin.com/in/rasidrasyid',
+      'Backend Developer',
+    ),
+    TeamMember(
+      'Fachri Yumanda Putra',
+      'Anggota',
+      'lib/image/fahri.jpg',
+      'https://linkedin.com/in/fachriyumanda',
+      'Mobile Developer',
+    ),
   ];
+
+  final String _githubLink = 'https://github.com/Zulkifli1409/smarteye';
 
   @override
   void initState() {
@@ -56,6 +83,27 @@ class _AboutPageState extends State<AboutPage> {
     });
   }
 
+  Future<void> _launchURL(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    try {
+      if (!await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Could not launch $urlString');
+      }
+    } catch (e) {
+      // Handle the error gracefully
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open the link: $urlString'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -72,7 +120,7 @@ class _AboutPageState extends State<AboutPage> {
         controller: _scrollController,
         slivers: [
           SliverAppBar(
-            expandedHeight: 250,
+            expandedHeight: 300,
             pinned: true,
             backgroundColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
@@ -89,29 +137,70 @@ class _AboutPageState extends State<AboutPage> {
                   children: [
                     Positioned(
                       top: 60,
-                      child: Container(
-                        padding: EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF1A237E), Color(0xFF0288D1)],
-                          ),
-                        ),
-                        child: Container(
-                          padding: EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                          ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'lib/image/logo.png',
-                              width: 120,
-                              height: 120,
-                              fit: BoxFit.cover,
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF1A237E), Color(0xFF0288D1)],
+                              ),
+                            ),
+                            child: Container(
+                              padding: EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'lib/image/logo.png',
+                                  width: 120,
+                                  height: 120,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          SizedBox(height: 16),
+                          Text(
+                            'SmartEye',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          InkWell(
+                            onTap: () => _launchURL(_githubLink),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.code, color: Color(0xFF1A237E)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'View on GitHub',
+                                    style: TextStyle(
+                                      color: Color(0xFF1A237E),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -142,7 +231,6 @@ class _AboutPageState extends State<AboutPage> {
               ),
             ),
           ),
-
         ],
       ),
     );
@@ -261,20 +349,16 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
           Container(
-            height: 450,
+            height: 500,
             child: PageView.builder(
               controller: _pageController,
               itemCount: _teamMembers.length,
               itemBuilder: (context, index) {
                 double value = 1.0;
                 if (_pageController.position.haveDimensions) {
-                  value = (_currentPage - index)
-                      .abs()
-                      .toDouble(); // Convert to double here
+                  value = (_currentPage - index).abs().toDouble();
                   value = (1 - value.clamp(0.0, 1.0));
                 }
-
-
                 return Transform.scale(
                   scale: 0.9 + (value * 0.1),
                   child: Opacity(
@@ -358,6 +442,14 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                   ),
                   SizedBox(height: 8),
+                  Text(
+                    member.title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 8),
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     decoration: BoxDecoration(
@@ -370,6 +462,32 @@ class _AboutPageState extends State<AboutPage> {
                         fontSize: 16,
                         color: Color(0xFF1A237E),
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  InkWell(
+                    onTap: () => _launchURL(member.linkedinUrl),
+                    child: Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Color(0xFF0077B5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.link, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Connect on LinkedIn',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -387,6 +505,14 @@ class TeamMember {
   final String name;
   final String role;
   final String imagePath;
+  final String linkedinUrl;
+  final String title;
 
-  TeamMember(this.name, this.role, this.imagePath);
+  TeamMember(
+    this.name,
+    this.role,
+    this.imagePath,
+    this.linkedinUrl,
+    this.title,
+  );
 }
